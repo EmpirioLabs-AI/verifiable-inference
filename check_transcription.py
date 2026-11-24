@@ -24,7 +24,9 @@ Verdict
                      and the typical gaps between the language log-probabilities and between the transcripts' average
                      log-probabilities within its limits
     DOES NOT MATCH   anything else
-Transcription answers carry no receipt. Exit status: 0 matches, 1 anything else.
+    signed           every answer carries a valid receipt from EmpirioLabs that names this model (check_receipt.py);
+                     a transcription answered as a job carries it on the job's result, for the request that made it
+Exit status: 0 matches and signed, 1 anything else.
 """
 import argparse
 import base64
@@ -196,25 +198,49 @@ class Unanswered(Exception):
     """The API gave no transcript for a clip: the check cannot be done, which says nothing about the model."""
 
 
-def _call(method, path, key, body=None):
-    """One request to the API at `path` (a path that starts with /v1); (the HTTP status, the JSON answer)."""
-    request = urllib.request.Request(ORIGIN + path, data=None if body is None else json.dumps(body).encode(), method=method,
+def _send(method, path, key, body=None):
+    """One request to the API at `path` (a path that starts with /v1); (the HTTP status, the JSON answer, the request
+    bytes sent, the response bytes received)."""
+    sent = None if body is None else json.dumps(body).encode()
+    request = urllib.request.Request(ORIGIN + path, data=sent, method=method,
                                      headers={"Authorization": "Bearer " + key, "Content-Type": "application/json",
                                               "User-Agent": check_receipt.USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=300) as response:
-            return response.status, json.loads(response.read())
+            received = response.read()
+            return response.status, json.loads(received), sent, received
     except urllib.error.HTTPError as error:
         raise Unanswered("HTTP %d: %s" % (error.code, error.read()[:300].decode("utf-8", "replace"))) from None
     except (OSError, ValueError) as error:
         raise Unanswered("%s: %s" % (type(error).__name__, error)) from None
 
 
-def ask(model, clip_bytes, suffix, key, settings=None, call=None):
+def _call(method, path, key, body=None):
+    """One request to the API at `path` (a path that starts with /v1); (the HTTP status, the JSON answer)."""
+    status, data, _sent, _received = _send(method, path, key, body)
+    return status, data
+
+
+def ask(model, clip_bytes, suffix, key, settings=None, call=None, exchanges=None):
     """One transcription with the fingerprint's settings, the audio sent inline as a customer may send it. A
     transcription that is still running answers 202 with a job, which is polled to its end. `call(method, path, key,
     body=None)` sends one request and returns (the HTTP status, the JSON answer), as _call does, which is the
-    default."""
+    default. A list `exchanges` (the default call only) also gets the request bytes and the bytes of the answer that
+    carries the transcript, for the receipt check: a job's result is signed for the request that made the job."""
+    if exchanges is not None and call is None:
+        seen = {}
+
+        def call(method, path, key, body=None):
+            status, data, sent, received = _send(method, path, key, body)
+            if method == "POST":
+                seen["request"] = sent
+            seen["answer"] = received
+            return status, data
+        try:
+            return ask(model, clip_bytes, suffix, key, settings, call=call)
+        finally:
+            if "request" in seen and "answer" in seen:
+                exchanges.append((seen["request"], seen["answer"]))
     call = call or _call
     body = {"model": model, "audio_base64": base64.b64encode(clip_bytes).decode(), "audio_suffix": suffix,
             **(REQUEST if settings is None else settings)}
@@ -293,11 +319,13 @@ def load(path):
     return fingerprint
 
 
-def run_check(model, fingerprint, folder, key, call=None):
+def run_check(model, fingerprint, folder, key, call=None, keys=None):
     """Every clip, each checked against the SHA-256 the fingerprint records before any is sent, then sent once;
     (the verdict, the numbers read from each answer). Raises ValueError for a clip that is not the one the fingerprint
     was made from and Unanswered when the API gives no transcript. A caller can send the requests through its own
-    `call` (ask's), for example to add its own rate limiting and retries."""
+    `call` (ask's), for example to add its own rate limiting and retries. With `keys` (check_receipt.load_keys) and
+    the default call, every answer's receipt is checked too: the verdict's `receipts` holds one (True, the receipt)
+    or (False, why) per clip."""
     clips = []
     for row in fingerprint["clips"]:
         path = os.path.join(folder, row["file"])
@@ -307,12 +335,20 @@ def run_check(model, fingerprint, folder, key, call=None):
             raise ValueError("%s is not the clip the fingerprint was made from" % row["file"])
         clips.append((clip, os.path.splitext(path)[1]))
     answers = []
+    exchanges = [] if keys is not None and call is None else None
     for clip, suffix in clips:
         try:
-            answers.append(read_answer(ask(model, clip, suffix, key, fingerprint["request"], call=call)))
+            if exchanges is None:
+                answer = ask(model, clip, suffix, key, fingerprint["request"], call=call)
+            else:
+                answer = ask(model, clip, suffix, key, fingerprint["request"], exchanges=exchanges)
+            answers.append(read_answer(answer))
         except Unanswered as error:
             raise Unanswered("the API did not answer clip %d: %s" % (len(answers) + 1, error)) from None
-    return verdict(fingerprint, answers), answers
+    v = verdict(fingerprint, answers)
+    if exchanges is not None:
+        v["receipts"] = [check_receipt.check(sent, received, keys) for sent, received in exchanges]
+    return v, answers
 
 
 def report(model, fingerprint, v, seconds):
@@ -323,30 +359,32 @@ def report(model, fingerprint, v, seconds):
     print("  typical gap between the language log-probabilities: %.4f (limit %.3f)" % (v["language_gap"], limits["language_gap"]))
     print("  typical gap between the transcripts' average log-probabilities: %.4f (limit %.3f)" % (
         v["logprob_gap"], limits["logprob_gap"]))
-    print("  receipts: not on this endpoint")
+    signed = check_receipt.report_receipts(model, v.get("receipts"))
     print("  %.0f s, no model was run" % seconds)
+    return signed
 
 
-def check_one(model, path, key, fingerprint=None, out=""):
-    """Check `model` against the fingerprint at `path` (already read when `fingerprint` is given). 0 matches, 1
-    anything else. `out` names a JSON file for the numbers read from each answer."""
+def check_one(model, path, key, fingerprint=None, out="", keys=None):
+    """Check `model` against the fingerprint at `path` (already read when `fingerprint` is given), and with `keys`
+    every answer's receipt. 0 matches (and signed, when checked), 1 anything else. `out` names a JSON file for the
+    numbers read from each answer."""
     started = time.time()
     try:
         fingerprint = fingerprint or load(path)
-        v, answers = run_check(model, fingerprint, os.path.dirname(os.path.abspath(path)), key)
+        v, answers = run_check(model, fingerprint, os.path.dirname(os.path.abspath(path)), key, keys=keys)
     except (Unanswered, OSError, ValueError, KeyError) as error:
         print("%s could not be checked: %s" % (model, error))
         return 1
-    report(model, fingerprint, v, time.time() - started)
+    signed = report(model, fingerprint, v, time.time() - started)
     if out:
         record = {"model": model, "fingerprint_of": fingerprint["weights"]}
-        record.update((name, v[name]) for name in v if name != "per_clip")
+        record.update((name, v[name]) for name in v if name not in ("per_clip", "receipts"))
         record["per_clip"] = [{"file": row["file"], "same": r[0], "language_gap": r[1], "logprob_gap": r[2]}
                               for row, r in zip(fingerprint["clips"], v["per_clip"])]
         record["answers"] = answers
         with open(out, "w", encoding="utf-8", newline="\n") as handle:
             json.dump(record, handle, indent=1, default=str)
-    return 0 if v["result"] == "matches" else 1
+    return 0 if v["result"] == "matches" and signed is not False else 1
 
 
 def main(argv=None):
@@ -359,6 +397,7 @@ def main(argv=None):
     c.add_argument("--model", required=True, help="the model ID on EmpirioLabs AI, for example whisper-large-v3-turbo")
     c.add_argument("--fingerprint", default="", help="a fingerprint file (default: fingerprints/<model>.json)")
     c.add_argument("--out", default="", help="also write the numbers read from each answer to this JSON file")
+    c.add_argument("--keys", default="pinned", help="receipt keys: pinned (default), live, a keys JSON file, or none")
     m = sub.add_parser("make", help="make a fingerprint from public weights")
     m.add_argument("--weights", required=True, help="a local folder holding the public checkpoint")
     m.add_argument("--name", required=True, help="the public repository these weights are, written into the fingerprint")
@@ -375,7 +414,8 @@ def main(argv=None):
     if args.command == "make":
         return make(args)
     return check_one(args.model, args.fingerprint or os.path.join(FINGERPRINTS, args.model + ".json"),
-                     check_receipt.api_key(), out=args.out)
+                     check_receipt.api_key(), out=args.out,
+                     keys=None if args.keys == "none" else check_receipt.load_keys(args.keys))
 
 
 if __name__ == "__main__":

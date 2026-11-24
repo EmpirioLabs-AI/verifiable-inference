@@ -178,7 +178,7 @@ class Asking(unittest.TestCase):
             return score(fingerprint, answers_from(fingerprint)), [], 0
 
         def other(kind):
-            def check_one(model, path, key, fingerprint=None):
+            def check_one(model, path, key, fingerprint=None, keys=None):
                 seen.append((model, kind))
                 return 0
             return check_one

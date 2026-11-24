@@ -157,7 +157,44 @@ class Receipts(unittest.TestCase):
         plain = json.dumps({"id": "chatcmpl-1", "choices": []}).encode()
         self.assertEqual(rc.check(REQUEST, plain, KEYS), (False, "the response carries no receipt"))
         self.assertEqual(rc.check(REQUEST, b"data: {}\n\ndata: [DONE]\n\n", KEYS), (False, "the response carries no receipt"))
-        self.assertEqual(rc.check(REQUEST, stream(done=False), KEYS), (False, "the response carries no receipt"))
+        # A receipt must follow a complete event.
+        cut = b'data: {"type":"content_block_delta"}\n'
+        receipt = json.dumps(receipt_for(REQUEST, cut), separators=(",", ":")).encode()
+        self.assertEqual(rc.check(REQUEST, cut + b": receipt " + receipt + b"\n\n", KEYS),
+                         (False, "the response carries no receipt"))
+
+    def test_a_stream_of_any_protocol_verifies_where_it_ends(self):
+        # Responses, Messages and Gemini streams end with their own last event, not data: [DONE].
+        ok, receipt = rc.check(REQUEST, stream(done=False), KEYS)
+        self.assertTrue(ok, receipt)
+        messages = b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
+        receipt = json.dumps(receipt_for(REQUEST, messages), separators=(",", ":")).encode()
+        self.assertTrue(rc.check(REQUEST, messages + b": receipt " + receipt + b"\n\n", KEYS)[0])
+
+    def test_bytes_with_the_receipt_in_a_header_verify_and_any_change_does_not(self):
+        audio = bytes(range(256)) * 8
+        header = json.dumps(receipt_for(REQUEST, audio), separators=(",", ":"))
+        ok, receipt = rc.check(REQUEST, audio, KEYS, header=header)
+        self.assertTrue(ok, receipt)
+        self.assertEqual(rc.check(REQUEST, audio[:-1] + b"x", KEYS, header=header),
+                         (False, "the receipt is for another response"))
+        self.assertEqual(rc.check(REQUEST + b" ", audio, KEYS, header=header), (False, "the receipt is for another request"))
+        self.assertEqual(rc.check(REQUEST, audio, KEYS, header="not json"), (False, "the response carries no receipt"))
+        self.assertEqual(rc.check(REQUEST, audio, KEYS, header="[]"), (False, "the response carries no receipt"))
+
+    def test_a_jobs_answer_verifies_against_the_post_and_its_files_against_their_hashes(self):
+        image, other = b"\x89PNG an image", b"\x89PNG another image"
+        body = json.dumps({"job_id": "job_1", "status": "completed", "result": {"data": [
+            {"url": "https://media.example/f.png", "sha256": hashlib.sha256(image).hexdigest()}]}},
+            separators=(",", ":")).encode()
+        answer = body[:-1] + b',"receipt":' + json.dumps(receipt_for(REQUEST, body), separators=(",", ":")).encode() + b"}"
+        self.assertTrue(rc.check(REQUEST, answer, KEYS)[0])
+        self.assertEqual(rc.output_hashes(answer), [hashlib.sha256(image).hexdigest()])
+        self.assertEqual(rc.check_outputs(answer, [image]), (True, ""))
+        self.assertEqual(rc.check_outputs(answer, [other]), (False, "output 1 is not a file this answer lists"))
+        # A file's hash is part of what the receipt covers: changing it breaks the receipt.
+        forged = answer.replace(hashlib.sha256(image).hexdigest().encode(), hashlib.sha256(other).hexdigest().encode())
+        self.assertEqual(rc.check(REQUEST, forged, KEYS), (False, "the receipt is for another response"))
 
     def test_answer_text_that_looks_like_a_receipt_changes_nothing(self):
         ok, receipt = rc.check(REQUEST, whole(content=',"receipt":{"version":1}'), KEYS)

@@ -19,16 +19,16 @@ Check which model answered and that EmpirioLabs served it, for the models Empiri
 
 </div>
 
-Two checks, each a single Python file that uses only the standard library:
+Two checks, each a single Python file that needs nothing beyond Python itself:
 
-- **Check a model.** `check_model.py` asks the live API a fixed list of questions for one token each and compares the token probabilities in the answers with a fingerprint made once from the model's public weights. It takes under two minutes and runs no model.
-- **Check a response.** Every successful chat completion from a Native Inference model carries a receipt signed by EmpirioLabs. `check_receipt.py` confirms the signature and that the receipt names your exact request and response.
+- **Check a response.** Every successful answer from a Native Inference model comes with a receipt signed by EmpirioLabs: chat, completions, Responses, Messages and Gemini requests, transcription, decisions, OCR, and image, video, audio, speech and 3D generation. `check_receipt.py` confirms the signature and that the receipt covers your exact request and response, and any generated file you downloaded.
+- **Check a model.** `check_model.py` asks the live API a fixed list of questions and compares the answers with a fingerprint made once from the model's public weights. It takes under two minutes and you don't run any model yourself.
 
 ## Get started
 
 1. Create an API key at https://platform.empiriolabs.ai/dashboard/api-keys and set it: `export EMPIRIOLABS_API_KEY="sk-empiriolabs-..."`.
 2. Check a model: `python check_model.py --model qwen3-5-9b`, or every model with a fingerprint: `python check_model.py --all`.
-3. Check a response: `python check_receipt.py live --model qwen3-5-9b` sends one request, not streamed and streamed, and checks both receipts. To check a response you kept, `python check_receipt.py files --request request.json --response response.bin`.
+3. Check a response: `python check_receipt.py live --model qwen3-5-9b` sends a request streamed and not streamed and checks both receipts (for an image model it makes one image and checks its file too). To check a response you kept, `python check_receipt.py files --request request.json --response response.bin`, adding `--header` for an answer that carries its receipt in the `X-Receipt` header and `--output` for files you downloaded.
 
 Python 3.9 or later. A model check sends 50 requests of one output token each (200 for a model whose API returns no list of alternatives), billed to your account at the model's listed price (https://empiriolabs.ai/pricing). A transcription or decision check sends each clip or request in its file once, billed the same way.
 
@@ -68,20 +68,23 @@ A receipt is a JSON object signed with Ed25519:
  "model": "qwen3-5-9b", "issued_at": 1795651200, "request_sha256": "...", "response_sha256": "...", "signature": "..."}
 ```
 
-- **Not streamed:** the last member of the response body, `...,"receipt":{...}}`. It covers the body with that member removed.
-- **Streamed:** one SSE comment after `data: [DONE]`, `: receipt {...}`. It covers every byte before that comment.
+- **JSON:** the last field of the response body, `...,"receipt":{...}}`. It covers the body without that field.
+- **Streams:** a final SSE comment after the stream's last event, `: receipt {...}`. It covers every byte before it.
+- **Raw bytes:** audio returned as a file, and transcripts returned as text or subtitles, carry it in the `X-Receipt` response header. It covers the whole body.
+- **Jobs:** a request that runs as a job (images, video, audio, 3D, OCR, transcription) gets its receipt on the answer that returns the result, the response to the original request or `GET /v1/jobs/{id}`. It covers that original request, so check it against the body you first sent. Each generated file lists its SHA-256 in `sha256`, which the receipt covers too.
 - **Signature:** over the receipt without `signature`, written as JSON with sorted keys and no spaces, encoded as base64url without padding.
 - **Keys:** [`keys/receipt-keys.json`](keys/receipt-keys.json) lists every key that has signed receipts, and https://api.empiriolabs.ai/v1/receipts/keys publishes the same list. A key is never removed from this file; a key that no longer signs is marked `retired`.
 
-To check a receipt you need the request body exactly as it was sent and the response exactly as it was received.
+To check a receipt you need the request body exactly as you sent it and the response exactly as you received it.
 
 ## What the checks cover
 
-- Native Inference chat models on `POST /v1/chat/completions`. The fingerprints cover the models in the table above.
-- The transcription and decision models in the table above, on `POST /v1/audio/transcriptions` and `POST /v1/decisions`, with the model check only. Their answers carry no receipt, and the model check prints `receipts: not on this endpoint` for them.
-- A model check confirms the model when the check runs. The questions are fixed and public, so the receipt on every response is what ties each answer to a model and to EmpirioLabs.
+- Receipts cover every Native Inference model. Third-party models don't carry one.
+- Text-to-video requests to `moss-video-and-audio` and `svi-2-0-pro` don't carry a receipt; send a starting image to get one. Streams from the Gemini endpoint `streamGenerateContent` don't either; use `generateContent` when you need one.
+- Fingerprints cover the models in the table above. Every model check also checks the receipt on every answer.
+- A model check confirms the model at the time it runs. The questions are fixed and public, so the receipt on every response is what ties each answer to a model and to EmpirioLabs.
 - A fingerprint confirms the model, not the numeric precision it runs at.
-- A receipt shows what EmpirioLabs returned for a request. It does not encrypt anything and does not show whether an answer is correct.
+- A receipt shows what EmpirioLabs returned for a request. It doesn't encrypt anything, and it doesn't show whether an answer is correct.
 
 ## Report a problem
 

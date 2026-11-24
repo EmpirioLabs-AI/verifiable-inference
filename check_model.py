@@ -7,8 +7,7 @@ answer, with their log-probabilities. This script asks the live API the same que
 covers both what answered and who served it.
 
 A file's `kind` says which check reads it: "transcription" files are checked by check_transcription.py and "decision"
-files by check_decision.py, each with the same verdict line. Their answers carry no receipt, so those checks print
-"receipts: not on this endpoint" and their verdict reads the answers alone.
+files by check_decision.py, each with the same verdict line and the same receipt check on every answer.
 
     python check_model.py --model qwen3-5-9b          one model (fingerprints/qwen3-5-9b.json)
     python check_model.py --all                       every model that has a fingerprint
@@ -219,7 +218,7 @@ def report(model, fingerprint, verdict, receipts, keys, sampled, seconds):
 
 def check_one(model, path, key, keys):
     """0 matches and signed, 1 anything else, 2 cannot tell. A transcription or a decision fingerprint is checked by
-    its own module, which reads no receipt: its answers carry none."""
+    its own module, which checks every answer's receipt with the same keys."""
     started = time.time()
     try:
         fingerprint = load_fingerprint(path)
@@ -228,7 +227,7 @@ def check_one(model, path, key, keys):
         return 1
     kind = fingerprint.get("kind", "chat-first-token")
     if kind in OTHER_KINDS:
-        return OTHER_KINDS[kind].check_one(model, path, key, fingerprint)
+        return OTHER_KINDS[kind].check_one(model, path, key, fingerprint, keys=keys)
     try:
         verdict, receipts, sampled = run_check(model, fingerprint, key, keys)
     except (OSError, ValueError, KeyError, urllib.error.URLError) as error:

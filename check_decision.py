@@ -19,7 +19,8 @@ Verdict
     matches          the same answer on at least the share of questions the fingerprint states, and the typical
                      largest difference between the probabilities within its limit
     DOES NOT MATCH   anything else
-Decision answers carry no receipt. Exit status: 0 matches, 1 anything else.
+    signed           every answer carries a valid receipt from EmpirioLabs that names this model (check_receipt.py)
+Exit status: 0 matches and signed, 1 anything else.
 """
 import argparse
 import hashlib
@@ -245,12 +246,15 @@ def _post(body, key):
     return check_receipt.post("/decisions", body, key, timeout=120)
 
 
-def ask(model, body, key, post=None):
+def ask(model, body, key, post=None, exchanges=None):
     """One request of the fingerprint, sent as it was made: the model, the state and the questions. The answers.
     `post(body, key)` sends the request body and returns (the request bytes sent, the response bytes received), as in
-    check_model.py; the default sends it to /v1/decisions on the API."""
+    check_model.py; the default sends it to /v1/decisions on the API. A list `exchanges` also gets those two byte
+    strings, for the receipt check."""
     try:
-        _, received = (post or _post)({"model": model, "state": body["state"], "questions": body["questions"]}, key)
+        sent, received = (post or _post)({"model": model, "state": body["state"], "questions": body["questions"]}, key)
+        if exchanges is not None:
+            exchanges.append((sent, received))
         return json.loads(received)["answers"]
     except urllib.error.HTTPError as error:
         raise Unanswered("HTTP %d: %s" % (error.code, error.read()[:300].decode("utf-8", "replace"))) from None
@@ -291,11 +295,19 @@ def load(path):
     return fingerprint
 
 
-def run_check(model, fingerprint, key, post=None):
+def run_check(model, fingerprint, key, post=None, keys=None):
     """Every request sent once; (the verdict, the answers). Raises Unanswered when the API gives no answer. A caller can
-    send the requests through its own `post` (ask's), for example to add its own rate limiting and retries."""
-    live = [ask(model, body, key, post=post) for body in fingerprint["requests"]]
-    return verdict(fingerprint, live), live
+    send the requests through its own `post` (ask's), for example to add its own rate limiting and retries. With
+    `keys` (check_receipt.load_keys), every answer's receipt is checked too: the verdict's `receipts` holds one
+    (True, the receipt) or (False, why) per answer."""
+    if keys is None:
+        live = [ask(model, body, key, post=post) for body in fingerprint["requests"]]
+        return verdict(fingerprint, live), live
+    exchanges = []
+    live = [ask(model, body, key, post=post, exchanges=exchanges) for body in fingerprint["requests"]]
+    v = verdict(fingerprint, live)
+    v["receipts"] = [check_receipt.check(sent, received, keys) for sent, received in exchanges]
+    return v, live
 
 
 def report(model, fingerprint, v, seconds):
@@ -305,31 +317,33 @@ def report(model, fingerprint, v, seconds):
                                                            int(limits["same_answer"] * v["questions"] + 0.999)))
     print("  typical largest difference between the probabilities: %.4f (limit %.3f), largest %.4f" % (
         v["typical_gap"], limits["typical_gap"], v["largest_gap"]))
-    print("  receipts: not on this endpoint")
+    signed = check_receipt.report_receipts(model, v.get("receipts"))
     print("  %.0f s, no model was run" % seconds)
+    return signed
 
 
-def check_one(model, path, key, fingerprint=None, out=""):
-    """Check `model` against the fingerprint at `path` (already read when `fingerprint` is given). 0 matches, 1
-    anything else. `out` names a JSON file for the verdict and the answers."""
+def check_one(model, path, key, fingerprint=None, out="", keys=None):
+    """Check `model` against the fingerprint at `path` (already read when `fingerprint` is given), and with `keys` every
+    answer's receipt. 0 matches (and signed, when checked), 1 anything else. `out` names a JSON file for the verdict
+    and the answers."""
     started = time.time()
     try:
         fingerprint = fingerprint or load(path)
-        v, live = run_check(model, fingerprint, key)
+        v, live = run_check(model, fingerprint, key, keys=keys)
     except Unanswered as error:
         print("%s could not be checked: the API did not answer: %s" % (model, error))
         return 1
     except (OSError, ValueError, KeyError) as error:
         print("%s could not be checked: %s" % (model, error))
         return 1
-    report(model, fingerprint, v, time.time() - started)
+    signed = report(model, fingerprint, v, time.time() - started)
     if out:
         record = {"model": model, "fingerprint_of": fingerprint["weights"]}
-        record.update(v)
+        record.update((name, v[name]) for name in v if name != "receipts")
         record["answers"] = live
         with open(out, "w", encoding="utf-8", newline="\n") as handle:
             json.dump(record, handle, ensure_ascii=False, indent=1)
-    return 0 if v["result"] == "matches" else 1
+    return 0 if v["result"] == "matches" and signed is not False else 1
 
 
 def main(argv=None):
@@ -342,6 +356,7 @@ def main(argv=None):
     c.add_argument("--model", required=True, help="the model ID on EmpirioLabs AI, for example aplomb-1")
     c.add_argument("--fingerprint", default="", help="a fingerprint file (default: fingerprints/<model>.json)")
     c.add_argument("--out", default="", help="also write the verdict and the answers to this JSON file")
+    c.add_argument("--keys", default="pinned", help="receipt keys: pinned (default), live, a keys JSON file, or none")
     m = sub.add_parser("make", help="make a fingerprint from public weights")
     m.add_argument("--weights", required=True, help="a local folder holding the public checkpoint")
     m.add_argument("--name", required=True, help="the public repository these weights are, written into the fingerprint")
@@ -355,7 +370,8 @@ def main(argv=None):
     if args.command == "make":
         return make(args)
     return check_one(args.model, args.fingerprint or os.path.join(FINGERPRINTS, args.model + ".json"),
-                     check_receipt.api_key(), out=args.out)
+                     check_receipt.api_key(), out=args.out,
+                     keys=None if args.keys == "none" else check_receipt.load_keys(args.keys))
 
 
 if __name__ == "__main__":

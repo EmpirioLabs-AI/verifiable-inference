@@ -18,6 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import check_decision as cd  # noqa: E402
 import check_model  # noqa: E402
+from test_check_receipt import KEYS, receipt_for  # noqa: E402  (the test signer, never a key of the API)
 
 FINGERPRINTS = os.path.join(ROOT, "fingerprints")
 REAL = os.path.join(FINGERPRINTS, "aplomb-1.json")
@@ -40,12 +41,24 @@ def key_of(state):
     return json.dumps(state, sort_keys=True)
 
 
-def run(change, path=REAL, check=None):
-    """check_one() with every request answered by `change(the fingerprint's own answers for it)`; (exit, output)."""
+def signed_answer(sent, received, model):
+    """`received` with a receipt for `sent` as its last member, signed by the test signer."""
+    receipt = json.dumps(receipt_for(sent, received, model=model), separators=(",", ":")).encode()
+    return received[:-1] + b',"receipt":' + receipt + b"}"
+
+
+def run(change, path=REAL, check=None, signed=True):
+    """check_one() with every request answered by `change(the fingerprint's own answers for it)`, each answer signed
+    unless `signed` is false; (exit, output)."""
     by_state = dict((key_of(r["state"]), r["answers"]) for r in load(path)["requests"])
 
-    def ask(model, body, key, post=None):
-        return change(json.loads(json.dumps(by_state[key_of(body["state"])])))
+    def ask(model, body, key, post=None, exchanges=None):
+        answers = change(json.loads(json.dumps(by_state[key_of(body["state"])])))
+        if exchanges is not None:
+            sent = json.dumps({"model": model, "state": body["state"], "questions": body["questions"]}).encode()
+            received = json.dumps({"answers": answers}).encode()
+            exchanges.append((sent, signed_answer(sent, received, model) if signed else received))
+        return answers
     out = io.StringIO()
     with mock.patch.object(cd, "ask", ask), contextlib.redirect_stdout(out):
         code = (check or cd.check_one)("aplomb-1", path, "not-a-key")
@@ -124,11 +137,18 @@ class Verdict(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("DOES NOT MATCH", out)
 
-    def test_check_model_runs_this_check_for_a_decision_fingerprint_and_fails_no_receipt(self):
-        code, out = run(lambda answers: answers, check=lambda model, path, key: check_model.check_one(model, path, key, []))
+    def test_check_model_runs_this_check_for_a_decision_fingerprint_and_checks_every_receipt(self):
+        def check(model, path, key):
+            return check_model.check_one(model, path, key, KEYS)
+        code, out = run(lambda answers: answers, check=check)
         self.assertEqual(code, 0, out)
         self.assertIn("aplomb-1 against the fingerprint of empiriolabsai/aplomb-1: matches", out)
-        self.assertIn("  receipts: not on this endpoint", out)
+        self.assertIn("  receipts: every answer signed by EmpirioLabs for aplomb-1", out)
+        # The same answers without receipts: the model matches, the check does not pass.
+        code, out = run(lambda answers: answers, check=check, signed=False)
+        self.assertEqual(code, 1, out)
+        self.assertIn(": matches", out)
+        self.assertIn("  receipts: 0 of 10 answers carry a valid receipt naming aplomb-1", out)
 
 
 class Asking(unittest.TestCase):
@@ -193,7 +213,7 @@ class Asking(unittest.TestCase):
             target = os.path.join(folder, "answers.json")
             with mock.patch.object(cd, "ask", lambda model, body, key, post=None: by_state[key_of(body["state"])]), \
                     mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "k"}), contextlib.redirect_stdout(io.StringIO()):
-                code = cd.main(["check", "--model", "aplomb-1", "--out", target])
+                code = cd.main(["check", "--model", "aplomb-1", "--out", target, "--keys", "none"])
             written = load(target)
         self.assertEqual(code, 0)
         self.assertEqual((written["result"], len(written["answers"])), ("matches", len(by_state)))

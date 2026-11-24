@@ -1,20 +1,29 @@
-"""Check the signed receipt on a chat completion from EmpirioLabs AI.
+"""Check the signed receipt on an answer from EmpirioLabs AI.
 
-Every successful chat completion from a model that EmpirioLabs serves on its own managed GPU infrastructure (a Native
-Inference model) carries a receipt signed by EmpirioLabs. The receipt names the model and holds the SHA-256 of the
-request body exactly as it was sent and of the response exactly as it was received, so anyone who kept those two
-byte strings can show later what was asked, what was answered, and that EmpirioLabs served it.
+Every successful answer from a model that EmpirioLabs runs on GPU infrastructure it manages (a Native Inference model)
+carries a receipt signed by EmpirioLabs: chat, completions, Responses, Messages and Gemini answers, transcripts,
+decisions, OCR, images, video, audio, speech and 3D. The receipt names the model and holds the SHA-256 of the request
+body exactly as it was sent and of the response exactly as it was received, so anyone who kept those two byte strings
+can show later what was asked, what was answered, and that EmpirioLabs served it.
 
-    python check_receipt.py live  --model qwen3-5-9b        one request, not streamed and streamed, both checked
-    python check_receipt.py files --request request.json --response response.bin
+    python check_receipt.py live  --model qwen3-5-9b       a chat model: one request, not streamed and streamed
+    python check_receipt.py live  --model flux-2-klein-4b  an image model: one image, its file checked too
+    python check_receipt.py files --request request.json --response response.bin [--header ...] [--output FILE ...]
 
 Python 3.9 or later, standard library only. `live` reads your API key from EMPIRIOLABS_API_KEY.
 
 Where the receipt travels
-    not streamed  the last member of the JSON body: ...,"receipt":{...}}
+    JSON          the last member of the body: ...,"receipt":{...}}
                   It covers the body with that member removed, without leading or trailing whitespace.
-    streamed      the last event of the stream, an SSE comment after `data: [DONE]`: `: receipt {...}`
+    a stream      the last event, an SSE comment after the stream's own last event: `: receipt {...}`
                   It covers every byte before that comment.
+    other bytes   audio, a transcript as text or subtitles: the X-Receipt response header holds the receipt.
+                  It covers the whole body.
+
+A job (an image, video, audio, 3D or OCR request that runs in the background) is answered later, by the request that
+waited for it or by GET /v1/jobs/{id}. That answer's receipt names the POST that made the job: check it with the POST's
+body as the request. Each generated file in the answer lists the SHA-256 of its bytes (`sha256`), which the receipt
+covers; `--output` checks a downloaded file against it.
 
 The receipt
     {"version": 1, "issuer": "api.empiriolabs.ai", "key_id": ..., "served_by": "empiriolabs-native", "model": ...,
@@ -32,6 +41,7 @@ import hashlib
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 
 API = "https://api.empiriolabs.ai/v1"
@@ -43,7 +53,8 @@ ISSUER = "api.empiriolabs.ai"
 SERVED_BY = "empiriolabs-native"
 JSON_MEMBER = b',"receipt":'
 STREAM_COMMENT = b": receipt "
-STREAM_END = b"data: [DONE]\n\n"
+EVENT_END = b"\n\n"
+HEADER = "X-Receipt"
 WHITESPACE = b" \t\r\n"
 USABLE = ("current", "retired")  # a listed key in any other state signs nothing we accept
 
@@ -152,12 +163,13 @@ def split_json(body):
 
 
 def split_stream(body):
-    """(the bytes the receipt covers, the receipt) of a streamed response, or None when it carries none."""
+    """(the bytes the receipt covers, the receipt) of a streamed response, or None when it carries none. The receipt
+    is the stream's last event and follows a complete event: the bytes it covers end with a blank line."""
     start = body.rfind(b"\n" + STREAM_COMMENT)
-    if start < 0 or not body.endswith(b"\n\n"):
+    if start < 0 or not body.endswith(EVENT_END):
         return None
     covered, line = body[:start + 1], body[start + 1 + len(STREAM_COMMENT):-2]
-    if b"\n" in line or b"\r" in line or not covered.endswith(STREAM_END):
+    if b"\n" in line or b"\r" in line or not covered.endswith(EVENT_END):
         return None
     try:
         receipt = json.loads(line)
@@ -166,13 +178,27 @@ def split_stream(body):
     return (covered, receipt) if isinstance(receipt, dict) else None
 
 
-def check(request_body, response_body, keys):
-    """Check one exchange against `keys`, the published list of {"key_id", "public_key", "status"}.
+def split_header(body, header):
+    """(the bytes the receipt covers, the receipt) of an answer whose X-Receipt header is `header`, or None."""
+    try:
+        receipt = json.loads(header)
+    except (TypeError, ValueError):
+        return None
+    return (body, receipt) if isinstance(receipt, dict) else None
+
+
+def check(request_body, response_body, keys, header=None):
+    """Check one exchange against `keys`, the published list of {"key_id", "public_key", "status"}. `header` is the
+    answer's X-Receipt header, for an answer that is neither JSON nor a stream (audio, text, subtitles).
 
     Returns (True, the receipt) or (False, the reason). True means: the receipt is signed by one of `keys`, and it
     names exactly this request body and exactly this response."""
-    streamed = response_body.lstrip(WHITESPACE)[:1] != b"{"
-    parts = split_stream(response_body) if streamed else split_json(response_body)
+    if header is not None:
+        parts = split_header(response_body, header)
+    elif response_body.lstrip(WHITESPACE)[:1] == b"{":
+        parts = split_json(response_body)
+    else:
+        parts = split_stream(response_body)
     if parts is None:
         return False, "the response carries no receipt"
     covered, receipt = parts
@@ -198,6 +224,48 @@ def check(request_body, response_body, keys):
     if receipt.get("response_sha256") != hashlib.sha256(covered).hexdigest():
         return False, "the receipt is for another response"
     return True, receipt
+
+
+def report_receipts(model, verdicts):
+    """Print a model check's receipt line from `verdicts`, one (ok, the receipt or why) per answer. Returns True when
+    every answer carries a valid receipt naming `model`, False when one does not, None when none were checked."""
+    if verdicts is None:
+        print("  receipts: not checked")
+        return None
+    named = sum(1 for ok, result in verdicts if ok and isinstance(result, dict) and result.get("model") == model)
+    signed = bool(verdicts) and named == len(verdicts)
+    reasons = sorted(set(result for ok, result in verdicts if not ok))
+    print("  receipts: %s" % ("every answer signed by EmpirioLabs for %s" % model if signed else
+                              "%d of %d answers carry a valid receipt naming %s%s" % (
+                                  named, len(verdicts), model, (": " + "; ".join(reasons[:3])) if reasons else "")))
+    return signed
+
+
+def output_hashes(response_body):
+    """The SHA-256 of every generated file a JSON answer lists (`sha256` of each item of `data`, also inside a job's
+    `result`), in order. The receipt covers these values as part of the answer."""
+    parts = split_json(response_body)
+    try:
+        answer = json.loads(parts[0] if parts else response_body.strip(WHITESPACE))
+    except ValueError:
+        return []
+    found = []
+    for holder in (answer, answer.get("result") if isinstance(answer, dict) else None):
+        items = holder.get("data") if isinstance(holder, dict) else None
+        for item in items if isinstance(items, list) else []:
+            value = item.get("sha256") if isinstance(item, dict) else None
+            if isinstance(value, str) and len(value) == 64:
+                found.append(value.lower())
+    return found
+
+
+def check_outputs(response_body, contents):
+    """(True, "") when every file in `contents` (bytes) is one the answer lists by its SHA-256, else (False, why)."""
+    listed = output_hashes(response_body)
+    for number, content in enumerate(contents, 1):
+        if hashlib.sha256(content).hexdigest() not in listed:
+            return False, "output %d is not a file this answer lists" % number
+    return True, ""
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -241,46 +309,105 @@ def post(path, body, key, timeout=300):
         return sent, response.read()
 
 
+def download(url, timeout=300):
+    """The bytes of a generated file's link."""
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=timeout) as response:
+        return response.read()
+
+
+def endpoints_of(model, key):
+    """The endpoints the API lists for `model` (`supported_endpoints`), or [] when it cannot say."""
+    request = urllib.request.Request(API + "/models/" + urllib.parse.quote(model, safe=""),
+                                     headers={"Authorization": "Bearer " + key, "User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            listed = json.loads(response.read()).get("supported_endpoints")
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [str(endpoint) for endpoint in listed] if isinstance(listed, list) else []
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Command line
 # ---------------------------------------------------------------------------------------------------------------
-def _live(args):
-    key = api_key()
-    keys = load_keys(args.keys)
+def _verdict(model, label, ok, result):
+    print("%s %-13s %s" % (model, label, "signed by EmpirioLabs, model %s, key %s" % (result["model"], result["key_id"])
+                           if ok else "NOT VERIFIED, " + result))
+
+
+def _live_chat(model, key, keys):
     failed = 0
     for stream in (False, True):
-        body = {"model": args.model, "max_tokens": 16, "stream": stream, "messages": [
+        body = {"model": model, "max_tokens": 16, "stream": stream, "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Name one fruit. Answer with the single word only."}]}
         sent, received = post("/chat/completions", body, key)
         ok, result = check(sent, received, keys)
         failed += not ok
-        print("%s %-13s %s" % (args.model, "streamed:" if stream else "not streamed:",
-                               "signed by EmpirioLabs, model %s, key %s" % (result["model"], result["key_id"]) if ok
-                               else "NOT VERIFIED, " + result))
+        _verdict(model, "streamed:" if stream else "not streamed:", ok, result)
     return 1 if failed else 0
 
 
+def _live_image(model, key, keys):
+    body = {"model": model, "prompt": "A red apple on a white table, soft studio light.", "n": 1}
+    sent, received = post("/images/generations", body, key, timeout=900)
+    ok, result = check(sent, received, keys)
+    _verdict(model, "image:", ok, result)
+    if not ok:
+        return 1
+    answer = json.loads(split_json(received)[0])
+    links = [item["url"] for item in answer.get("data") or [] if isinstance(item, dict) and item.get("url")]
+    good, why = check_outputs(received, [download(link) for link in links]) if links else (False, "the answer lists no file")
+    print("%s %-13s %s" % (model, "file:", "%d file(s) match the SHA-256 the receipt covers" % len(links) if good
+                           else "NOT VERIFIED, " + why))
+    return 0 if good else 1
+
+
+def _live(args):
+    key = api_key()
+    keys = load_keys(args.keys)
+    endpoints = endpoints_of(args.model, key)
+    if not endpoints or "POST /v1/chat/completions" in endpoints:
+        return _live_chat(args.model, key, keys)
+    if "POST /v1/images/generations" in endpoints:
+        return _live_image(args.model, key, keys)
+    print("%s answers on %s. Keep the request body you sent and the response you received, then run: "
+          "python check_receipt.py files --request ... --response ..." % (args.model, ", ".join(endpoints)))
+    return 2
+
+
+def _read(path):
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
 def _files(args):
-    with open(args.request, "rb") as handle:
-        sent = handle.read()
-    with open(args.response, "rb") as handle:
-        received = handle.read()
-    ok, result = check(sent, received, load_keys(args.keys))
+    sent, received = _read(args.request), _read(args.response)
+    header = args.header
+    if header is not None and header.startswith("@"):
+        header = _read(header[1:]).decode("utf-8").strip()
+    ok, result = check(sent, received, load_keys(args.keys), header=header)
     print("signed by EmpirioLabs: model %s, issued at %s, key %s" % (result["model"], result["issued_at"], result["key_id"])
           if ok else "NOT VERIFIED: " + result)
-    return 0 if ok else 1
+    if not ok or not args.output:
+        return 0 if ok else 1
+    good, why = check_outputs(received, [_read(path) for path in args.output])
+    print("files: %d match the SHA-256 the receipt covers" % len(args.output) if good else "NOT VERIFIED: " + why)
+    return 0 if good else 1
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    one = sub.add_parser("live", help="send one request each way and check both receipts")
-    one.add_argument("--model", required=True, help="a Native Inference chat model ID, for example qwen3-5-9b")
+    one = sub.add_parser("live", help="send a request and check its receipt (chat and image models)")
+    one.add_argument("--model", required=True, help="a Native Inference model ID, for example qwen3-5-9b")
     one.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
     two = sub.add_parser("files", help="check a saved request body and the response received for it")
-    two.add_argument("--request", required=True, help="the request body, byte for byte as it was sent")
+    two.add_argument("--request", required=True,
+                     help="the request body, byte for byte as it was sent (for a job's answer, the POST that made the job)")
     two.add_argument("--response", required=True, help="the response body, byte for byte as it was received")
+    two.add_argument("--header", help="the answer's X-Receipt header, or @file holding it (audio, text, subtitles)")
+    two.add_argument("--output", nargs="+", help="generated files you downloaded, checked against the answer's sha256")
     two.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
     args = parser.parse_args(argv)
     return _live(args) if args.command == "live" else _files(args)

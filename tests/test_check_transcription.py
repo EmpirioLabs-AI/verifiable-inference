@@ -21,6 +21,7 @@ from unittest import mock
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import check_model  # noqa: E402
+from test_check_receipt import KEYS, receipt_for  # noqa: E402  (the test signer, never a key of the API)
 import check_transcription as ct  # noqa: E402
 
 FINGERPRINTS = os.path.join(ROOT, "fingerprints")
@@ -48,12 +49,21 @@ def api_answer(row, language_shift=0.0, logprob_shift=0.0, tokens=None):
             "info": {"all_language_probs": [[code, math.exp(lp + language_shift)] for code, lp in row["languages"]]}}
 
 
-def run(answer, path=REAL, check=None):
-    """check_one() with every clip answered by `answer(the fingerprint's row for it)`; (exit status, output)."""
+def run(answer, path=REAL, check=None, signed=True):
+    """check_one() with every clip answered by `answer(the fingerprint's row for it)`, each answer signed unless
+    `signed` is false; (exit status, output)."""
     rows = dict((row["sha256"], row) for row in load(path)["clips"])
 
-    def ask(model, clip, suffix, key, settings, call=None):
-        return answer(rows[hashlib.sha256(clip).hexdigest()])
+    def ask(model, clip, suffix, key, settings, call=None, exchanges=None):
+        given = answer(rows[hashlib.sha256(clip).hexdigest()])
+        if exchanges is not None:
+            sent = json.dumps({"model": model, "audio_suffix": suffix, **settings}).encode()
+            received = json.dumps(given).encode()
+            if signed:
+                receipt = json.dumps(receipt_for(sent, received, model=model), separators=(",", ":")).encode()
+                received = received[:-1] + b',"receipt":' + receipt + b"}"
+            exchanges.append((sent, received))
+        return given
     out = io.StringIO()
     with mock.patch.object(ct, "ask", ask), contextlib.redirect_stdout(out):
         code = (check or ct.check_one)("whisper-large-v3-turbo", path, "not-a-key")
@@ -131,11 +141,33 @@ class Verdict(unittest.TestCase):
             self.assertEqual(code, 0, (answer.__name__, out))
             self.assertIn(": matches", out)
 
-    def test_check_model_runs_this_check_for_a_transcription_fingerprint_and_fails_no_receipt(self):
-        code, out = run(api_answer, check=lambda model, path, key: check_model.check_one(model, path, key, []))
+    def test_check_model_runs_this_check_for_a_transcription_fingerprint_and_checks_every_receipt(self):
+        def check(model, path, key):
+            return check_model.check_one(model, path, key, KEYS)
+        code, out = run(api_answer, check=check)
         self.assertEqual(code, 0, out)
         self.assertIn("whisper-large-v3-turbo against the fingerprint of openai/whisper-large-v3-turbo: matches", out)
-        self.assertIn("  receipts: not on this endpoint", out)
+        self.assertIn("  receipts: every answer signed by EmpirioLabs for whisper-large-v3-turbo", out)
+        code, out = run(api_answer, check=check, signed=False)
+        self.assertEqual(code, 1, out)
+        self.assertIn("  receipts: 0 of 12 answers carry a valid receipt naming whisper-large-v3-turbo", out)
+
+    def test_the_default_call_keeps_the_bytes_of_the_answer_that_carries_the_transcript(self):
+        posted = []
+
+        def send(method, path, key, body=None):
+            sent = None if body is None else json.dumps(body).encode()
+            if method == "POST":
+                posted.append(sent)
+                return 202, {"job_id": "job_1", "status": "processing"}, sent, b"{}"
+            done = json.dumps({"job_id": "job_1", "status": "completed", "result": {"text": "done"}}).encode()
+            return 200, json.loads(done), sent, done
+        exchanges = []
+        with mock.patch.object(ct, "_send", send), mock.patch.object(ct.time, "sleep", lambda seconds: None):
+            self.assertEqual(ct.ask("m", b"fLaC", ".flac", "k", exchanges=exchanges), {"text": "done"})
+        # The job's result is signed for the POST that made the job: those two byte strings are kept.
+        self.assertEqual(exchanges, [(posted[0], json.dumps({"job_id": "job_1", "status": "completed",
+                                                             "result": {"text": "done"}}).encode())])
 
 
 class Asking(unittest.TestCase):
@@ -242,7 +274,7 @@ class Asking(unittest.TestCase):
             with mock.patch.object(ct, "ask", lambda model, clip, suffix, key, settings, call=None: api_answer(
                     rows[hashlib.sha256(clip).hexdigest()])), mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "k"}), \
                     contextlib.redirect_stdout(io.StringIO()):
-                code = ct.main(["check", "--model", "whisper-large-v3-turbo", "--out", target])
+                code = ct.main(["check", "--model", "whisper-large-v3-turbo", "--out", target, "--keys", "none"])
             written = load(target)
         self.assertEqual(code, 0)
         self.assertEqual((written["result"], len(written["per_clip"]), len(written["answers"])),
