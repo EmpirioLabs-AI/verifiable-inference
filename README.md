@@ -30,7 +30,13 @@ Two checks, each a single Python file that uses only the standard library:
 2. Check a model: `python check_model.py --model qwen3-5-9b`, or every model with a fingerprint: `python check_model.py --all`.
 3. Check a response: `python check_receipt.py live --model qwen3-5-9b` sends one request, not streamed and streamed, and checks both receipts. To check a response you kept, `python check_receipt.py files --request request.json --response response.bin`.
 
-Python 3.9 or later. A model check sends 50 requests of one output token each, billed to your account at the model's listed price (https://empiriolabs.ai/pricing).
+Python 3.9 or later. A model check sends 50 requests of one output token each (200 for a model whose API returns no list of alternatives), billed to your account at the model's listed price (https://empiriolabs.ai/pricing).
+
+`check_model.py` prints one verdict per model:
+
+- `matches`: the answers agree with the public weights within the limits the fingerprint states, every prompt reached the model as it was sent, and every answer carries a valid receipt naming the model.
+- `DOES NOT MATCH`: anything else. The lines below the verdict say which part failed.
+- `CANNOT TELL`: the fingerprint's questions are too certain to tell models apart without a limit on the other alternatives, and the file sets none.
 
 ## Fingerprints
 

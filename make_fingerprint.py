@@ -17,7 +17,6 @@ import argparse
 import hashlib
 import json
 import os
-import statistics
 import sys
 import time
 
@@ -65,7 +64,8 @@ def make(args):
     fingerprint = {"kind": "chat-first-token", "model": args.model, "weights": args.name or args.weights,
                    "revision": args.revision, "weight_files_sha256": files, "system": SYSTEM,
                    "made_with": "plain transformers code on %s" % device,
-                   "limits": {"typical_gap": args.limit_gap, "first_token": 0.8},
+                   "limits": dict({"typical_gap": args.limit_gap, "first_token": 0.8},
+                                  **({"tail_gap": args.tail_gap} if args.tail_gap is not None else {})),
                    "made_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "rows": rows}
     with open(args.out, "w", encoding="utf-8") as handle:
         json.dump(fingerprint, handle, ensure_ascii=False, indent=0)
@@ -83,23 +83,23 @@ def default_questions():
 
 
 def compare(args):
-    """How far two fingerprints of the same questions are apart, in the terms check_model.py uses."""
+    """How close two fingerprints of the same questions are, scored exactly as check_model.py scores a live model:
+    the second file's numbers are read as if the API had returned them."""
+    import check_model
+
     first = json.load(open(args.first, encoding="utf-8"))
     second = json.load(open(args.second, encoding="utf-8"))
-    pairs = [(a, b) for a, b in zip(first["rows"], second["rows"]) if a["question"] == b["question"]]
-    if len(pairs) != len(first["rows"]):
+    rows = dict((row["question"], row) for row in second["rows"])
+    if [row["question"] for row in first["rows"]] != [row["question"] for row in second["rows"]]:
         raise SystemExit("the two fingerprints do not ask the same questions in the same order")
-    same_first, gaps, lengths = 0, [], set()
-    for a, b in pairs:
-        ra, rb = dict(map(tuple, a["top"])), dict(map(tuple, b["top"]))
-        same_first += max(ra, key=ra.get) == max(rb, key=rb.get)
-        common = [t for t in ra if t in rb]
-        weights = [2.718281828 ** ra[t] for t in common]
-        gaps.append(sum(w * abs(ra[t] - rb[t]) for w, t in zip(weights, common)) / sum(weights) if common else float("inf"))
-        lengths.add(b["prompt_tokens"] - a["prompt_tokens"])
-    print("same most likely first token: %d of %d questions" % (same_first, len(pairs)))
-    print("typical gap between the log-probabilities: %.3f" % statistics.median(gaps))
-    print("prompt lengths differ by: %s" % sorted(lengths))
+    answers = [(rows[row["question"]]["top"], rows[row["question"]]["prompt_tokens"]) for row in first["rows"]]
+    verdict = check_model.score(first["rows"], answers, first.get("limits") or {})
+    print("%s against %s: %s" % (args.second, args.first, verdict["result"]))
+    print("same most likely first token: %d of %d questions" % (verdict["same_first"], verdict["questions"]))
+    print("typical gap between the log-probabilities: %.3f" % verdict["typical_gap"])
+    if verdict["tail_gap"] is not None:
+        print("typical gap among the other alternatives: %.3f" % verdict["tail_gap"])
+    print("prompt lengths differ by: %s" % verdict["offsets"])
 
 
 def main(argv=None):
@@ -114,7 +114,9 @@ def main(argv=None):
     m.add_argument("--questions", default="", help="a JSON list of questions (default: the questions of our fingerprints)")
     m.add_argument("--half", action="store_true", help="run in bfloat16 (always on a GPU)")
     m.add_argument("--device", default="auto", choices=("auto", "cpu", "cuda"))
-    m.add_argument("--limit-gap", type=float, default=0.15)
+    m.add_argument("--limit-gap", type=float, default=0.15, help="twice the gap between two honest runs, at least 0.15")
+    m.add_argument("--tail-gap", type=float, default=None,
+                   help="a limit on the other alternatives, for a model whose answers are near-certain")
     c = sub.add_parser("compare", help="compare two fingerprints of the same questions")
     c.add_argument("first")
     c.add_argument("second")
