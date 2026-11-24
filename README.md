@@ -44,8 +44,10 @@ Python 3.9 or later. A model check sends 50 requests of one output token each (2
 | Model ID | Public weights | Revision | Made |
 | --- | --- | --- | --- |
 | [`gemma-4-26b-a4b`](fingerprints/gemma-4-26b-a4b.json) | [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it/tree/4d7ae4984b7db7de8f8457170b3f1a419ee76d52) | `4d7ae4984b7d` | 2026-11-23 |
+| [`muse-glimmer-30b`](fingerprints/muse-glimmer-30b.json) | [RadixArk/Muse-Glimmer-NVFP4](https://huggingface.co/RadixArk/Muse-Glimmer-NVFP4/tree/3f7428bda949d17f478e89b920374d622a4b9bb0) | `3f7428bda949` | 2026-11-24 |
 | [`qwen3-5-4b`](fingerprints/qwen3-5-4b.json) | [Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B/tree/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a) | `851bf6e806ef` | 2026-11-23 |
 | [`qwen3-5-9b`](fingerprints/qwen3-5-9b.json) | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B/tree/c202236235762e1c871ad0ccb60c8ee5ba337b9a) | `c20223623576` | 2026-11-23 |
+| [`qwen3-6-35b-a3b`](fingerprints/qwen3-6-35b-a3b.json) | [EschaLabs/Qwen3.6-35B-A3B-Escha-W2](https://huggingface.co/EschaLabs/Qwen3.6-35B-A3B-Escha-W2/tree/6072a54913552616b64599c30f5e8a3c8fecad9c) | `6072a5491355` | 2026-11-24 |
 | [`qwen3-8-27b`](fingerprints/qwen3-8-27b.json) | [Inferact/Qwen3.8-27B-NVFP4](https://huggingface.co/Inferact/Qwen3.8-27B-NVFP4/tree/6128240ebaf4eaa7bad2b3d1c72c37d677c5f462) | `6128240ebaf4` | 2026-11-23 |
 <!-- fingerprints:end -->
 
