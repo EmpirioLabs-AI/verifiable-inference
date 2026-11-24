@@ -1,0 +1,905 @@
+{
+ "kind": "decision",
+ "model": "aplomb-1",
+ "weights": "empiriolabsai/aplomb-1",
+ "revision": "1225d382f51a29d04c888cdadc8b94f21261c7b2",
+ "weight_files_sha256": {
+  "model.safetensors-00001-of-00002.safetensors": "f2353f83377e3896880e9bc2348ac6bc11e65bd33cc6355e47455bc1d596ea83",
+  "model.safetensors-00002-of-00002.safetensors": "6d199d688cb56a1f5bcd820158399671352f798f0bbb37c5aacfac3a54a00a8f"
+ },
+ "made_with": "the reference code published with the weights, on cpu",
+ "made_at": "2026-11-24T06:20:30Z",
+ "limits": {
+  "same_answer": 0.9,
+  "typical_gap": 0.01
+ },
+ "requests": [
+  {
+   "state": "My package was supposed to arrive on Monday. It is now Thursday and the tracking page has not changed since Saturday. I need it for a birthday party this weekend.",
+   "questions": {
+    "urgent": {
+     "type": "noul",
+     "instructions": "Does the customer need this solved before the weekend?"
+    },
+    "refund": {
+     "type": "noul",
+     "instructions": "Is the customer asking for a refund?",
+     "criteria": {
+      "true": "The message asks for money back.",
+      "false": "The message reports a problem without asking for money back."
+     }
+    },
+    "team": {
+     "type": "choice",
+     "instructions": "Which team should handle this message?",
+     "criteria": {
+      "shipping": "Deliveries, tracking and lost parcels",
+      "billing": "Charges, refunds and invoices",
+      "technical": "Bugs, errors and outages",
+      "sales": "Plans, pricing and upgrades"
+     }
+    },
+    "mood": {
+     "type": "score",
+     "instructions": "How upset is the customer?",
+     "criteria": [
+      "Calm",
+      "Annoyed",
+      "Frustrated",
+      "Very angry"
+     ]
+    },
+    "carrier": {
+     "type": "choice",
+     "instructions": "Which carrier is delivering the package?",
+     "criteria": {
+      "ups": null,
+      "fedex": null,
+      "dhl": null,
+      "usps": null
+     },
+     "abstain": true
+    },
+    "order_number": {
+     "type": "noul",
+     "instructions": "Does the message give an order number?",
+     "abstain": true
+    }
+   },
+   "answers": {
+    "urgent": {
+     "type": "noul",
+     "noul": 0.9751557,
+     "confidence": 0.95031139
+    },
+    "refund": {
+     "type": "noul",
+     "noul": 0.00149839,
+     "confidence": 0.99700322
+    },
+    "team": {
+     "type": "choice",
+     "choice": "shipping",
+     "probabilities": {
+      "shipping": 0.99983516,
+      "billing": 4.619e-05,
+      "technical": 5.349e-05,
+      "sales": 6.516e-05
+     },
+     "confidence": 0.99978021
+    },
+    "mood": {
+     "type": "score",
+     "score": 1.55003423,
+     "legend": {
+      "0": "Calm",
+      "1": "Annoyed",
+      "2": "Frustrated",
+      "3": "Very angry"
+     },
+     "probabilities": {
+      "0": 0.07981806,
+      "1": 0.36867569,
+      "2": 0.47316021,
+      "3": 0.07834604
+     },
+     "confidence": 0.29754694
+    },
+    "carrier": {
+     "type": "choice",
+     "choice": "fedex",
+     "probabilities": {
+      "ups": 0.15488388,
+      "fedex": 0.35760301,
+      "dhl": 0.21066058,
+      "usps": 0.27685254
+     },
+     "confidence": 0.14347068,
+     "abstain": 0.9995292
+    },
+    "order_number": {
+     "type": "noul",
+     "noul": 0.00702482,
+     "confidence": 0.98595037,
+     "abstain": 0.95629885
+    }
+   }
+  },
+  {
+   "state": "The blender is powerful and crushes ice in seconds, but it is so loud that my neighbours complained, and the lid started leaking after two weeks.",
+   "questions": {
+    "sentiment": {
+     "type": "choice",
+     "instructions": "What is the overall sentiment of the review?",
+     "criteria": {
+      "positive": null,
+      "negative": null,
+      "mixed": null,
+      "neutral": null
+     }
+    },
+    "recommend": {
+     "type": "noul",
+     "instructions": "Would the reviewer recommend this blender to a friend?"
+    },
+    "stars": {
+     "type": "score",
+     "instructions": "How many stars would this review most likely give?",
+     "criteria": [
+      "1 star",
+      "2 stars",
+      "3 stars",
+      "4 stars",
+      "5 stars"
+     ]
+    },
+    "defect": {
+     "type": "noul",
+     "instructions": "Does the review describe a defect in the product?"
+    },
+    "complaint": {
+     "type": "choice",
+     "instructions": "What does the reviewer complain about most?",
+     "criteria": {
+      "power": null,
+      "noise": null,
+      "durability": null,
+      "price": null
+     }
+    }
+   },
+   "answers": {
+    "sentiment": {
+     "type": "choice",
+     "choice": "mixed",
+     "probabilities": {
+      "positive": 0.01741345,
+      "negative": 0.35353737,
+      "mixed": 0.60912311,
+      "neutral": 0.01992608
+     },
+     "confidence": 0.47883081
+    },
+    "recommend": {
+     "type": "noul",
+     "noul": 0.0287539,
+     "confidence": 0.9424922
+    },
+    "stars": {
+     "type": "score",
+     "score": 1.58462745,
+     "legend": {
+      "0": "1 star",
+      "1": "2 stars",
+      "2": "3 stars",
+      "3": "4 stars",
+      "4": "5 stars"
+     },
+     "probabilities": {
+      "0": 0.09315323,
+      "1": 0.34626772,
+      "2": 0.46202575,
+      "3": 0.07990496,
+      "4": 0.01864834
+     },
+     "confidence": 0.32753218
+    },
+    "defect": {
+     "type": "noul",
+     "noul": 0.94284479,
+     "confidence": 0.88568958
+    },
+    "complaint": {
+     "type": "choice",
+     "choice": "noise",
+     "probabilities": {
+      "power": 0.00787462,
+      "noise": 0.61047543,
+      "durability": 0.37456388,
+      "price": 0.00708607
+     },
+     "confidence": 0.48063391
+    }
+   }
+  },
+  {
+   "state": {
+    "order": {
+     "id": "A-1009",
+     "status": "delivered",
+     "items": 3,
+     "paid": true,
+     "delivered_at": "2026-11-02",
+     "returns_open": 1
+    },
+    "customer": {
+     "tier": "gold",
+     "member_since": 2019
+    }
+   },
+   "questions": {
+    "paid": {
+     "type": "noul",
+     "instructions": "Has the order been paid?"
+    },
+    "return_open": {
+     "type": "noul",
+     "instructions": "Has the customer opened a return for this order?",
+     "abstain": true
+    },
+    "tier": {
+     "type": "choice",
+     "instructions": "Which loyalty tier is the customer in?",
+     "criteria": {
+      "bronze": null,
+      "silver": null,
+      "gold": null,
+      "platinum": null
+     }
+    },
+    "tenure": {
+     "type": "score",
+     "instructions": "How long has the customer been a member?",
+     "criteria": [
+      "Under a year",
+      "One to three years",
+      "Three to six years",
+      "More than six years"
+     ]
+    },
+    "discount": {
+     "type": "noul",
+     "instructions": "Should the customer be offered a loyalty discount on the next order?"
+    },
+    "gift": {
+     "type": "noul",
+     "instructions": "Was the order sent as a gift?",
+     "abstain": true
+    }
+   },
+   "answers": {
+    "paid": {
+     "type": "noul",
+     "noul": 0.9999767,
+     "confidence": 0.9999534
+    },
+    "return_open": {
+     "type": "noul",
+     "noul": 0.96265589,
+     "confidence": 0.92531178,
+     "abstain": 0.03315085
+    },
+    "tier": {
+     "type": "choice",
+     "choice": "gold",
+     "probabilities": {
+      "bronze": 1.453e-05,
+      "silver": 1.572e-05,
+      "gold": 0.99992896,
+      "platinum": 4.079e-05
+     },
+     "confidence": 0.99990528
+    },
+    "tenure": {
+     "type": "score",
+     "score": 2.70925363,
+     "legend": {
+      "0": "Under a year",
+      "1": "One to three years",
+      "2": "Three to six years",
+      "3": "More than six years"
+     },
+     "probabilities": {
+      "0": 0.02068781,
+      "1": 0.02354429,
+      "2": 0.18159435,
+      "3": 0.77417355
+     },
+     "confidence": 0.69889806
+    },
+    "discount": {
+     "type": "noul",
+     "noul": 0.89615722,
+     "confidence": 0.79231443
+    },
+    "gift": {
+     "type": "noul",
+     "noul": 0.11629006,
+     "confidence": 0.76741988,
+     "abstain": 0.99981434
+    }
+   }
+  },
+  {
+   "state": "Der Stadtrat hat am Dienstag beschlossen, die Buslinie 12 ab Januar alle zehn Minuten fahren zu lassen. Die Kosten von 1,2 Millionen Euro im Jahr sollen zum Teil durch höhere Parkgebühren gedeckt werden.",
+   "questions": {
+    "topic": {
+     "type": "choice",
+     "instructions": "What is the main topic of the text?",
+     "criteria": {
+      "transport": null,
+      "finance": null,
+      "education": null,
+      "health": null
+     }
+    },
+    "parking": {
+     "type": "noul",
+     "instructions": "Will parking become more expensive?"
+    },
+    "start": {
+     "type": "choice",
+     "instructions": "When does the new timetable start?",
+     "criteria": {
+      "january": null,
+      "february": null,
+      "march": null
+     },
+     "abstain": true
+    },
+    "dispute": {
+     "type": "score",
+     "instructions": "How controversial is the decision likely to be?",
+     "criteria": [
+      "Not controversial",
+      "Somewhat controversial",
+      "Very controversial"
+     ]
+    }
+   },
+   "answers": {
+    "topic": {
+     "type": "choice",
+     "choice": "transport",
+     "probabilities": {
+      "transport": 0.99732041,
+      "finance": 0.00198584,
+      "education": 0.00031633,
+      "health": 0.00037741
+     },
+     "confidence": 0.99642722
+    },
+    "parking": {
+     "type": "noul",
+     "noul": 0.9873308,
+     "confidence": 0.97466161
+    },
+    "start": {
+     "type": "choice",
+     "choice": "january",
+     "probabilities": {
+      "january": 0.99981859,
+      "february": 0.0001288,
+      "march": 5.261e-05
+     },
+     "confidence": 0.99972789,
+     "abstain": 1.358e-05
+    },
+    "dispute": {
+     "type": "score",
+     "score": 1.27663391,
+     "legend": {
+      "0": "Not controversial",
+      "1": "Somewhat controversial",
+      "2": "Very controversial"
+     },
+     "probabilities": {
+      "0": 0.08650025,
+      "1": 0.5503656,
+      "2": 0.36313416
+     },
+     "confidence": 0.3255484
+    }
+   }
+  },
+  {
+   "state": "Cliente: Hola, quiero cambiar mi plan al anual.\nAgente: Claro, ¿desea mantener el mismo método de pago?\nCliente: No, prefiero pagar con transferencia bancaria.",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "¿Qué quiere hacer el cliente?",
+     "criteria": {
+      "upgrade": "Cambiar a un plan mayor o más largo",
+      "cancel": "Darse de baja",
+      "complaint": "Quejarse de un problema",
+      "question": "Hacer una pregunta general"
+     }
+    },
+    "new_payment": {
+     "type": "noul",
+     "instructions": "¿Quiere el cliente cambiar el método de pago?"
+    },
+    "satisfaction": {
+     "type": "score",
+     "instructions": "¿Qué tan satisfecho parece el cliente?",
+     "criteria": [
+      "Insatisfecho",
+      "Neutral",
+      "Satisfecho"
+     ]
+    },
+    "language": {
+     "type": "choice",
+     "instructions": "In which language is the conversation?",
+     "criteria": {
+      "spanish": null,
+      "portuguese": null,
+      "italian": null,
+      "catalan": null
+     }
+    }
+   },
+   "answers": {
+    "intent": {
+     "type": "choice",
+     "choice": "upgrade",
+     "probabilities": {
+      "upgrade": 0.99904863,
+      "cancel": 0.00044998,
+      "complaint": 0.00020065,
+      "question": 0.00030073
+     },
+     "confidence": 0.99873151
+    },
+    "new_payment": {
+     "type": "noul",
+     "noul": 0.98789748,
+     "confidence": 0.97579496
+    },
+    "satisfaction": {
+     "type": "score",
+     "score": 1.30162084,
+     "legend": {
+      "0": "Insatisfecho",
+      "1": "Neutral",
+      "2": "Satisfecho"
+     },
+     "probabilities": {
+      "0": 0.10304473,
+      "1": 0.4922897,
+      "2": 0.40466557
+     },
+     "confidence": 0.23843456
+    },
+    "language": {
+     "type": "choice",
+     "choice": "spanish",
+     "probabilities": {
+      "spanish": 0.98577571,
+      "portuguese": 0.00419901,
+      "italian": 0.00154726,
+      "catalan": 0.00847802
+     },
+     "confidence": 0.98103428
+    }
+   }
+  },
+  {
+   "state": "def average(values):\n    return sum(values) / len(values)\n",
+   "questions": {
+    "empty_fails": {
+     "type": "noul",
+     "instructions": "Does this function raise an error when the list is empty?"
+    },
+    "language": {
+     "type": "choice",
+     "instructions": "Which programming language is this?",
+     "criteria": {
+      "python": null,
+      "javascript": null,
+      "ruby": null,
+      "go": null
+     }
+    },
+    "quality": {
+     "type": "score",
+     "instructions": "How ready is this function for production use?",
+     "criteria": [
+      "Not ready",
+      "Needs work",
+      "Acceptable",
+      "Good",
+      "Excellent"
+     ]
+    },
+    "needs_test": {
+     "type": "noul",
+     "instructions": "Should this function get a unit test before it ships?"
+    }
+   },
+   "answers": {
+    "empty_fails": {
+     "type": "noul",
+     "noul": 0.99138766,
+     "confidence": 0.98277533
+    },
+    "language": {
+     "type": "choice",
+     "choice": "python",
+     "probabilities": {
+      "python": 0.99579224,
+      "javascript": 0.00124063,
+      "ruby": 0.00201235,
+      "go": 0.00095478
+     },
+     "confidence": 0.99438965
+    },
+    "quality": {
+     "type": "score",
+     "score": 1.56842838,
+     "legend": {
+      "0": "Not ready",
+      "1": "Needs work",
+      "2": "Acceptable",
+      "3": "Good",
+      "4": "Excellent"
+     },
+     "probabilities": {
+      "0": 0.23974066,
+      "1": 0.27333982,
+      "2": 0.25826572,
+      "3": 0.13605806,
+      "4": 0.09259574
+     },
+     "confidence": 0.09167477
+    },
+    "needs_test": {
+     "type": "noul",
+     "noul": 0.97620044,
+     "confidence": 0.95240089
+    }
+   }
+  },
+  {
+   "state": "The train leaves at 14:10 and arrives at 16:55.",
+   "questions": {
+    "duration": {
+     "type": "choice",
+     "instructions": "How long is the trip?",
+     "criteria": {
+      "2h15": "2 hours 15 minutes",
+      "2h45": "2 hours 45 minutes",
+      "2h55": "2 hours 55 minutes",
+      "3h05": "3 hours 5 minutes"
+     }
+    },
+    "over_two_hours": {
+     "type": "noul",
+     "instructions": "Is the trip longer than two hours?"
+    },
+    "weekday": {
+     "type": "choice",
+     "instructions": "On which day does the train leave?",
+     "criteria": {
+      "monday": null,
+      "tuesday": null,
+      "wednesday": null,
+      "thursday": null,
+      "friday": null
+     },
+     "abstain": true
+    },
+    "length": {
+     "type": "score",
+     "instructions": "How long is this trip for a daily commute?",
+     "criteria": [
+      "Short",
+      "Moderate",
+      "Long",
+      "Very long"
+     ]
+    }
+   },
+   "answers": {
+    "duration": {
+     "type": "choice",
+     "choice": "2h55",
+     "probabilities": {
+      "2h15": 0.02117658,
+      "2h45": 0.35176409,
+      "2h55": 0.49908948,
+      "3h05": 0.12796986
+     },
+     "confidence": 0.3321193
+    },
+    "over_two_hours": {
+     "type": "noul",
+     "noul": 0.99911629,
+     "confidence": 0.99823257
+    },
+    "weekday": {
+     "type": "choice",
+     "choice": "monday",
+     "probabilities": {
+      "monday": 0.28271579,
+      "tuesday": 0.21705248,
+      "wednesday": 0.02066916,
+      "thursday": 0.2179104,
+      "friday": 0.26165218
+     },
+     "confidence": 0.10339473,
+     "abstain": 0.99929046
+    },
+    "length": {
+     "type": "score",
+     "score": 1.53958291,
+     "legend": {
+      "0": "Short",
+      "1": "Moderate",
+      "2": "Long",
+      "3": "Very long"
+     },
+     "probabilities": {
+      "0": 0.04759374,
+      "1": 0.44946893,
+      "2": 0.41869799,
+      "3": 0.08423933
+     },
+     "confidence": 0.26595858
+    }
+   }
+  },
+  {
+   "state": "Your account will be closed in 24 hours unless you confirm your password at the link below. Click here to verify now.",
+   "questions": {
+    "phishing": {
+     "type": "noul",
+     "instructions": "Is this message likely a phishing attempt?"
+    },
+    "category": {
+     "type": "choice",
+     "instructions": "What kind of message is this?",
+     "criteria": {
+      "phishing": null,
+      "spam": null,
+      "notice": "A real notice from a service",
+      "marketing": null
+     }
+    },
+    "risk": {
+     "type": "score",
+     "instructions": "How risky is it to follow the link?",
+     "criteria": [
+      "Low",
+      "Medium",
+      "High",
+      "Critical"
+     ]
+    },
+    "sender": {
+     "type": "choice",
+     "instructions": "Which company sent the message?",
+     "criteria": {
+      "bank": null,
+      "email provider": null,
+      "online shop": null
+     },
+     "abstain": true
+    }
+   },
+   "answers": {
+    "phishing": {
+     "type": "noul",
+     "noul": 0.96514173,
+     "confidence": 0.93028345
+    },
+    "category": {
+     "type": "choice",
+     "choice": "phishing",
+     "probabilities": {
+      "phishing": 0.85708181,
+      "spam": 0.06504867,
+      "notice": 0.07162525,
+      "marketing": 0.00624427
+     },
+     "confidence": 0.80944241
+    },
+    "risk": {
+     "type": "score",
+     "score": 1.88233155,
+     "legend": {
+      "0": "Low",
+      "1": "Medium",
+      "2": "High",
+      "3": "Critical"
+     },
+     "probabilities": {
+      "0": 0.10636782,
+      "1": 0.16805985,
+      "2": 0.46244529,
+      "3": 0.26312704
+     },
+     "confidence": 0.28326038
+    },
+    "sender": {
+     "type": "choice",
+     "choice": "email provider",
+     "probabilities": {
+      "bank": 0.08964184,
+      "email provider": 0.82607951,
+      "online shop": 0.08427866
+     },
+     "confidence": 0.73911926,
+     "abstain": 0.83129836
+    }
+   }
+  },
+  {
+   "state": "明日の会議は午後3時から4時までです。資料は前日までに共有してください。",
+   "questions": {
+    "time_of_day": {
+     "type": "choice",
+     "instructions": "When is the meeting?",
+     "criteria": {
+      "morning": null,
+      "afternoon": null,
+      "evening": null
+     }
+    },
+    "share_early": {
+     "type": "noul",
+     "instructions": "Must the documents be shared before the day of the meeting?"
+    },
+    "length": {
+     "type": "score",
+     "instructions": "How long is the meeting?",
+     "criteria": [
+      "Under an hour",
+      "About an hour",
+      "Two hours or more"
+     ]
+    }
+   },
+   "answers": {
+    "time_of_day": {
+     "type": "choice",
+     "choice": "afternoon",
+     "probabilities": {
+      "morning": 0.00197721,
+      "afternoon": 0.99232705,
+      "evening": 0.00569574
+     },
+     "confidence": 0.98849058
+    },
+    "share_early": {
+     "type": "noul",
+     "noul": 0.94775471,
+     "confidence": 0.89550943
+    },
+    "length": {
+     "type": "score",
+     "score": 0.62131103,
+     "legend": {
+      "0": "Under an hour",
+      "1": "About an hour",
+      "2": "Two hours or more"
+     },
+     "probabilities": {
+      "0": 0.40129743,
+      "1": 0.5760941,
+      "2": 0.02260846
+     },
+     "confidence": 0.36414115
+    }
+   }
+  },
+  {
+   "state": {
+    "ticket": "The coffee machine I bought last month stopped heating. I would like a replacement, not my money back."
+   },
+   "questions": {
+    "next_step": {
+     "type": "tool",
+     "instructions": "Which tool should the support agent call next?",
+     "tools": [
+      {
+       "type": "function",
+       "function": {
+        "name": "send_replacement",
+        "parameters": {
+         "type": "object",
+         "properties": {
+          "reason": {
+           "type": "string",
+           "enum": [
+            "defective",
+            "damaged",
+            "wrong_item"
+           ]
+          },
+          "express": {
+           "type": "boolean"
+          }
+         }
+        }
+       }
+      },
+      {
+       "type": "function",
+       "function": {
+        "name": "issue_refund",
+        "parameters": {
+         "type": "object",
+         "properties": {
+          "full_refund": {
+           "type": "boolean"
+          }
+         }
+        }
+       }
+      },
+      {
+       "type": "function",
+       "function": {
+        "name": "escalate_to_human",
+        "parameters": {
+         "type": "object",
+         "properties": {}
+        }
+       }
+      }
+     ]
+    }
+   },
+   "answers": {
+    "next_step": {
+     "type": "tool",
+     "tool": "send_replacement",
+     "probabilities": {
+      "send_replacement": 0.99407149,
+      "issue_refund": 0.00024372,
+      "escalate_to_human": 0.00042116,
+      "none": 0.00526363
+     },
+     "confidence": 0.99209532,
+     "arguments": {
+      "send_replacement": {
+       "reason": {
+        "value": "defective",
+        "probabilities": {
+         "defective": 0.99114008,
+         "damaged": 0.00718394,
+         "wrong_item": 0.00167598
+        },
+        "confidence": 0.98671012
+       },
+       "express": {
+        "value": false,
+        "probability_true": 0.14371054,
+        "confidence": 0.71257893
+       }
+      },
+      "issue_refund": {
+       "full_refund": {
+        "value": false,
+        "probability_true": 0.00468851,
+        "confidence": 0.99062298
+       }
+      }
+     },
+     "open_arguments": {}
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,968 @@
+{
+ "kind": "transcription",
+ "model": "whisper-large-v3-turbo",
+ "weights": "openai/whisper-large-v3-turbo",
+ "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+ "weight_files_sha256": {
+  "model.safetensors": "542566a422ae4f3fd23f1ba11add198fca01bbf82e66e6a2857b3f608b1eb9d1"
+ },
+ "made_with": "plain transformers code on cpu",
+ "made_at": "2026-11-24T06:25:15Z",
+ "request": {
+  "temperature": "0",
+  "beam_size": 1,
+  "vad_filter": false,
+  "without_timestamps": true,
+  "condition_on_previous_text": false,
+  "no_speech_threshold": 1,
+  "include_tokens": true,
+  "response_format": "verbose_json"
+ },
+ "limits": {
+  "same_transcript": 0.8,
+  "language_gap": 0.005,
+  "logprob_gap": 0.025
+ },
+ "clips": [
+  {
+   "file": "whisper-large-v3-turbo/galician.flac",
+   "sha256": "180474a18370fead4c5bd3ff6b89c7b2bb9ae0932c949789f16a25e211441ac2",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/multilingual_short_works_collection_015_1608_librivox/msw015_02_adiosriosadiosfontes_castro_crecente_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    62.493,
+    68.493
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "gl",
+   "languages": [
+    [
+     "gl",
+     -0.5031
+    ],
+    [
+     "es",
+     -1.3693
+    ],
+    [
+     "pt",
+     -2.6267
+    ],
+    [
+     "it",
+     -3.7581
+    ],
+    [
+     "en",
+     -4.9567
+    ],
+    [
+     "ca",
+     -5.5104
+    ],
+    [
+     "fr",
+     -5.6757
+    ],
+    [
+     "sk",
+     -6.1094
+    ],
+    [
+     "fi",
+     -6.2477
+    ],
+    [
+     "zh",
+     -6.2759
+    ]
+   ],
+   "tokens": [
+    12228,
+    271,
+    1872,
+    22715,
+    308,
+    2806,
+    520,
+    27713,
+    257,
+    2752,
+    12150,
+    26298,
+    408,
+    2752,
+    12150,
+    631,
+    10764,
+    12038,
+    3277,
+    368,
+    16305,
+    1573
+   ],
+   "text": " máis son probe e mal pecado a miña terra ne miña que hasta lle dan de prestado",
+   "avg_logprob": -0.220558,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/luxembourgish.flac",
+   "sha256": "8b084703708d35d710364827026cac37ceea806795993fc39e1b1c34a931dbba",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/multilingual_short_works_collection_015_1608_librivox/msw015_16_etworemolekanoneer_delafontaine_ss_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    34.446,
+    40.446
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "de",
+   "languages": [
+    [
+     "de",
+     -0.1088
+    ],
+    [
+     "en",
+     -3.7309
+    ],
+    [
+     "ru",
+     -5.0681
+    ],
+    [
+     "sv",
+     -5.0745
+    ],
+    [
+     "it",
+     -5.0748
+    ],
+    [
+     "nl",
+     -5.141
+    ],
+    [
+     "fr",
+     -5.2296
+    ],
+    [
+     "ko",
+     -5.3862
+    ],
+    [
+     "pl",
+     -5.4642
+    ],
+    [
+     "es",
+     -5.6348
+    ]
+   ],
+   "tokens": [
+    294,
+    1224,
+    278,
+    975,
+    367,
+    973,
+    65,
+    364,
+    465,
+    26322,
+    710,
+    1560,
+    2800,
+    10390,
+    2265
+   ],
+   "text": " in dringte röb an engem zock ach dich lang",
+   "avg_logprob": -0.746628,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/bosnian.flac",
+   "sha256": "c87b25ede9b269551233588c8595fc81c61e658dcf9f3adbeef84e6012a1379b",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/msw041_2605_librivox/msw041_02_ostajteovdje_santic_gvm_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    46.934,
+    52.934
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "hr",
+   "languages": [
+    [
+     "hr",
+     -0.0083
+    ],
+    [
+     "sr",
+     -5.7958
+    ],
+    [
+     "sl",
+     -7.4322
+    ],
+    [
+     "pl",
+     -7.5371
+    ],
+    [
+     "en",
+     -7.6173
+    ],
+    [
+     "cs",
+     -7.8328
+    ],
+    [
+     "bs",
+     -7.9155
+    ],
+    [
+     "it",
+     -8.1622
+    ],
+    [
+     "sk",
+     -8.3881
+    ],
+    [
+     "tr",
+     -8.6818
+    ]
+   ],
+   "tokens": [
+    6332,
+    7371,
+    504,
+    4568,
+    84,
+    1488,
+    73,
+    375,
+    7891,
+    2162,
+    68,
+    741,
+    13010,
+    541,
+    4684,
+    298,
+    13,
+    879,
+    89,
+    11481,
+    3228,
+    13673,
+    2330,
+    3285,
+    5179,
+    1426,
+    272,
+    7371,
+    13
+   ],
+   "text": " Krila trgnu joj lišće i pokose ledom. Bez vas bi majka domovina bila.",
+   "avg_logprob": -0.063124,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/sanskrit.flac",
+   "sha256": "0a61e1461a56696e2415a67159bcbe3eb7bcc4204e6573f039d40770a9d6dda7",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/msw041_2605_librivox/msw041_16_heartsutra_unknown_m_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    99.91,
+    105.91
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "en",
+   "languages": [
+    [
+     "en",
+     -0.2973
+    ],
+    [
+     "ru",
+     -2.861
+    ],
+    [
+     "es",
+     -3.6156
+    ],
+    [
+     "pt",
+     -3.7257
+    ],
+    [
+     "tr",
+     -4.0519
+    ],
+    [
+     "fr",
+     -4.1426
+    ],
+    [
+     "de",
+     -4.1857
+    ],
+    [
+     "id",
+     -4.4936
+    ],
+    [
+     "zh",
+     -4.6337
+    ],
+    [
+     "pl",
+     -4.736
+    ]
+   ],
+   "tokens": [
+    291
+   ],
+   "text": " you",
+   "avg_logprob": -1.440786,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/bengali.flac",
+   "sha256": "ae59de6554dcb80088c7d611c2c62ded398118e576c46c31e27b4b53cdadacb9",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/msw041_2605_librivox/msw041_01_bangabhasha_dutta_dc_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    35.111,
+    41.111
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "gu",
+   "languages": [
+    [
+     "gu",
+     -1.3971
+    ],
+    [
+     "bn",
+     -1.8932
+    ],
+    [
+     "th",
+     -2.6473
+    ],
+    [
+     "hi",
+     -2.7026
+    ],
+    [
+     "mk",
+     -3.0846
+    ],
+    [
+     "cy",
+     -3.2939
+    ],
+    [
+     "be",
+     -3.421
+    ],
+    [
+     "en",
+     -3.4345
+    ],
+    [
+     "la",
+     -3.6077
+    ],
+    [
+     "mr",
+     -3.6923
+    ]
+   ],
+   "tokens": [
+    1097
+   ],
+   "text": " ...",
+   "avg_logprob": -1.746345,
+   "no_speech_prob": 5e-05
+  },
+  {
+   "file": "whisper-large-v3-turbo/tamil.flac",
+   "sha256": "2964a7cc5e0fc8e476ffccf0cd1ba2013b83fd365ec51f4c10d02e9f91896fef",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/multilingual_poetry_collection_005_librivox/tamil_thirukural_thiruvalluvar_ck_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/licenses/publicdomain/)",
+   "cut": [
+    63.463,
+    69.463
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "ta",
+   "languages": [
+    [
+     "ta",
+     -0.1139
+    ],
+    [
+     "th",
+     -3.3685
+    ],
+    [
+     "hi",
+     -3.8694
+    ],
+    [
+     "cy",
+     -4.8834
+    ],
+    [
+     "en",
+     -5.4462
+    ],
+    [
+     "ar",
+     -5.7131
+    ],
+    [
+     "sw",
+     -5.7831
+    ],
+    [
+     "he",
+     -5.8086
+    ],
+    [
+     "zh",
+     -5.9504
+    ],
+    [
+     "el",
+     -6.0232
+    ]
+   ],
+   "tokens": [
+    12894,
+    5511,
+    2133,
+    5511,
+    5036,
+    14337,
+    16789,
+    8491,
+    2133,
+    4742,
+    5036,
+    6467,
+    8402,
+    37240,
+    6467,
+    3923,
+    4742,
+    2133,
+    4742,
+    6993,
+    2133,
+    12776,
+    36001,
+    2133,
+    12669,
+    5036,
+    5511,
+    12669,
+    5511,
+    2133,
+    5511,
+    8402,
+    8491,
+    6980,
+    2133,
+    14337,
+    16789,
+    8491,
+    2133,
+    4742,
+    3923,
+    8708,
+    4516,
+    6421,
+    6993,
+    2133
+   ],
+   "text": " இன்னா செய்தாரை ஒருத்தல் அவர் நான நன்னையம் செய்துவிடல்",
+   "avg_logprob": -0.081874,
+   "no_speech_prob": 4e-06
+  },
+  {
+   "file": "whisper-large-v3-turbo/chinese-story.flac",
+   "sha256": "14adf090de586f47b7f3caf84bb11bd58c2abe8fbc80e7c8b4f4bc7a90103f0c",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/mbs3_2611_librivox/mbs3_02_aesop_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    40.133,
+    46.133
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "zh",
+   "languages": [
+    [
+     "zh",
+     -0.0127
+    ],
+    [
+     "en",
+     -4.8351
+    ],
+    [
+     "ja",
+     -6.1115
+    ],
+    [
+     "ko",
+     -7.3264
+    ],
+    [
+     "ru",
+     -8.2383
+    ],
+    [
+     "vi",
+     -8.4509
+    ],
+    [
+     "pt",
+     -8.4577
+    ],
+    [
+     "es",
+     -8.529
+    ],
+    [
+     "id",
+     -8.8422
+    ],
+    [
+     "de",
+     -8.9831
+    ]
+   ],
+   "tokens": [
+    33083,
+    9147,
+    10756,
+    112,
+    5419,
+    249,
+    32271,
+    11,
+    10928,
+    23151,
+    165,
+    16838,
+    19017,
+    245,
+    9574,
+    14696,
+    96,
+    1543
+   ],
+   "text": "先生起嘴盛长,地受骨梗之患。",
+   "avg_logprob": -0.289503,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/greek.flac",
+   "sha256": "63d700622d49168dc35658ec746a9d96c9f497c7ab63eba43958879791708301",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/multilingual_poetry_collection_005_librivox/greek_apolipinotheosantonion_kavafis_gv_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/licenses/publicdomain/)",
+   "cut": [
+    52.387,
+    58.387
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "el",
+   "languages": [
+    [
+     "el",
+     -0.004
+    ],
+    [
+     "en",
+     -6.3274
+    ],
+    [
+     "ru",
+     -7.948
+    ],
+    [
+     "ko",
+     -8.5513
+    ],
+    [
+     "pt",
+     -8.8384
+    ],
+    [
+     "de",
+     -8.9221
+    ],
+    [
+     "vi",
+     -8.9224
+    ],
+    [
+     "es",
+     -8.9596
+    ],
+    [
+     "ja",
+     -9.0876
+    ],
+    [
+     "zh",
+     -9.2219
+    ]
+   ],
+   "tokens": [
+    26408,
+    17928,
+    10541,
+    10600,
+    1835,
+    4043,
+    22281,
+    19821,
+    8839,
+    21457,
+    11,
+    5532,
+    17928,
+    18828,
+    9903,
+    35780,
+    22281,
+    11,
+    5532,
+    17928,
+    15878,
+    3596,
+    5074,
+    13477,
+    3849,
+    16008,
+    6452,
+    23814,
+    485
+   ],
+   "text": " Σαν έτοιμος από καιρό, σαν θαραλέος, σαν που ταιριάζει σε...",
+   "avg_logprob": -0.088099,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/apollo11.flac",
+   "sha256": "ea03aa34ae2c7b4283ece33c9b8489d468d7c44b2a19095e809ac2cb7221903f",
+   "seconds": 7.0,
+   "source": "https://upload.wikimedia.org/wikipedia/commons/d/dd/Armstrong_Small_Step.ogg",
+   "license": "public domain (a NASA recording; Wikimedia Commons marks it public domain)",
+   "cut": [
+    9.064,
+    16.064
+   ],
+   "processing": "decoded to 16 kHz mono, cut",
+   "language": "en",
+   "languages": [
+    [
+     "en",
+     -0.3002
+    ],
+    [
+     "de",
+     -1.6228
+    ],
+    [
+     "ru",
+     -4.1707
+    ],
+    [
+     "es",
+     -4.683
+    ],
+    [
+     "fr",
+     -5.1988
+    ],
+    [
+     "zh",
+     -5.2686
+    ],
+    [
+     "ja",
+     -5.5694
+    ],
+    [
+     "nl",
+     -5.6638
+    ],
+    [
+     "pt",
+     -5.8275
+    ],
+    [
+     "pl",
+     -6.0799
+    ]
+   ],
+   "tokens": [
+    479,
+    16
+   ],
+   "text": " F1",
+   "avg_logprob": -0.629067,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/english-noise.flac",
+   "sha256": "3eea588cf456d9894d6339f48638345617d95d642f55372f9175de0baab9aa4a",
+   "seconds": 6.0,
+   "source": "https://archive.org/download/smc12_multilingual_1604_librivox/sm12_23_shakespeare_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    33.588,
+    39.588
+   ],
+   "processing": "decoded to 16 kHz mono, cut, white noise added at 3 dB (numpy seed 20261123)",
+   "language": "en",
+   "languages": [
+    [
+     "en",
+     -0.0103
+    ],
+    [
+     "de",
+     -6.5049
+    ],
+    [
+     "fr",
+     -6.5349
+    ],
+    [
+     "es",
+     -6.8679
+    ],
+    [
+     "ru",
+     -6.8912
+    ],
+    [
+     "pt",
+     -7.1335
+    ],
+    [
+     "zh",
+     -7.3323
+    ],
+    [
+     "it",
+     -7.6206
+    ],
+    [
+     "ja",
+     -7.6477
+    ],
+    [
+     "ko",
+     -7.7956
+    ]
+   ],
+   "tokens": [
+    293,
+    577,
+    264,
+    1570,
+    300,
+    5064,
+    538,
+    786,
+    293,
+    1818,
+    13
+   ],
+   "text": " and how the less that burn by day and night.",
+   "avg_logprob": -0.566846,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/english-fast.flac",
+   "sha256": "5dbdd88c91d589873d675d1ea6d0da56ff0681e2dc7921beea9821fe03af91d1",
+   "seconds": 6.002,
+   "source": "https://archive.org/download/mbs3_2611_librivox/mbs3_01_aesop_64kb.mp3",
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    38.798,
+    47.798
+   ],
+   "processing": "decoded to 16 kHz mono, cut, played 1.5 times as fast (ffmpeg atempo)",
+   "language": "en",
+   "languages": [
+    [
+     "en",
+     -0.0001
+    ],
+    [
+     "es",
+     -10.9415
+    ],
+    [
+     "de",
+     -11.2119
+    ],
+    [
+     "pt",
+     -11.2662
+    ],
+    [
+     "ja",
+     -11.3793
+    ],
+    [
+     "fr",
+     -11.6496
+    ],
+    [
+     "ru",
+     -11.7246
+    ],
+    [
+     "ko",
+     -11.9608
+    ],
+    [
+     "zh",
+     -11.9832
+    ],
+    [
+     "it",
+     -12.2385
+    ]
+   ],
+   "tokens": [
+    49179,
+    773,
+    293,
+    25300,
+    702,
+    7798,
+    11,
+    1624,
+    22642,
+    11,
+    1545,
+    11,
+    291,
+    362,
+    11468,
+    1217,
+    632,
+    257,
+    11563,
+    48000,
+    1288,
+    11,
+    293,
+    1419,
+    668,
+    28658,
+    485
+   ],
+   "text": " grinning and grinding his teeth, exclaimed, Why, you have surely already had a sufficient recompense, and having been permitted...",
+   "avg_logprob": -0.125096,
+   "no_speech_prob": 0.0
+  },
+  {
+   "file": "whisper-large-v3-turbo/german-english.flac",
+   "sha256": "16ab4f5f278057e7a022ae4858a520ca8325a27880c0e63140277c69738bf8e0",
+   "seconds": 7.0,
+   "source": [
+    "https://archive.org/download/multilingual_poetry_collection_005_librivox/german_mondnacht_eichendorff_bl_64kb.mp3",
+    "https://archive.org/download/smc12_multilingual_1604_librivox/sm12_02_shakespeare_64kb.mp3"
+   ],
+   "license": "public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/licenses/publicdomain/); public domain (a LibriVox recording; the archive.org item is marked http://creativecommons.org/publicdomain/mark/1.0/)",
+   "cut": [
+    [
+     36.706,
+     40.206
+    ],
+    [
+     83.838,
+     87.338
+    ]
+   ],
+   "processing": "decoded to 16 kHz mono, two cuts joined",
+   "language": "de",
+   "languages": [
+    [
+     "de",
+     -0.0026
+    ],
+    [
+     "en",
+     -6.1209
+    ],
+    [
+     "nl",
+     -9.8345
+    ],
+    [
+     "ru",
+     -9.9232
+    ],
+    [
+     "es",
+     -9.971
+    ],
+    [
+     "fr",
+     -10.0898
+    ],
+    [
+     "it",
+     -10.5214
+    ],
+    [
+     "pt",
+     -10.5526
+    ],
+    [
+     "ko",
+     -10.7507
+    ],
+    [
+     "sv",
+     -10.8142
+    ]
+   ],
+   "tokens": [
+    10946,
+    536,
+    306,
+    16174,
+    9358,
+    15306,
+    14280,
+    932,
+    774,
+    10345
+   ],
+   "text": " meine seele spannte weit ihre flügel",
+   "avg_logprob": -0.088424,
+   "no_speech_prob": 0.0
+  }
+ ]
+}

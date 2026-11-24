@@ -1,15 +1,20 @@
 """Check that a model on EmpirioLabs AI is the public model it is said to be, without running any model.
 
-Each file in fingerprints/ was made once, from the model's public weights: for a fixed list of questions, the 20
-tokens the model finds most likely to begin its answer, with their log-probabilities. This script asks the live API
-the same questions for one token each, with `logprobs` on, and compares. It also checks the signed receipt on every
-answer (check_receipt.py), so the verdict covers both what answered and who served it.
+Each file in fingerprints/ was made once, from the model's public weights. A chat model's file (kind
+"chat-first-token") holds, for a fixed list of questions, the 20 tokens the model finds most likely to begin its
+answer, with their log-probabilities. This script asks the live API the same questions for one token each, with
+`logprobs` on, and compares. It also checks the signed receipt on every answer (check_receipt.py), so the verdict
+covers both what answered and who served it.
+
+A file's `kind` says which check reads it: "transcription" files are checked by check_transcription.py and "decision"
+files by check_decision.py, each with the same verdict line. Their answers carry no receipt, so those checks print
+"receipts: not on this endpoint" and their verdict reads the answers alone.
 
     python check_model.py --model qwen3-5-9b          one model (fingerprints/qwen3-5-9b.json)
     python check_model.py --all                       every model that has a fingerprint
 
-Python 3.9 or later, standard library only. Reads your API key from EMPIRIOLABS_API_KEY. A check of one model sends
-50 requests of one output token each (four per question for a model whose API returns no list of alternatives),
+Python 3.9 or later, standard library only. Reads your API key from EMPIRIOLABS_API_KEY. A check of one chat model
+sends 50 requests of one output token each (four per question for a model whose API returns no list of alternatives),
 billed to your account at the model's listed price.
 
 Verdict
@@ -30,11 +35,15 @@ import sys
 import time
 import urllib.error
 
+import check_decision
 import check_receipt
+import check_transcription
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FINGERPRINTS = os.path.join(HERE, "fingerprints")
-KINDS = ("chat-first-token",)
+# The check of every kind but chat, by the file's `kind`.
+OTHER_KINDS = {check_transcription.KIND: check_transcription, check_decision.KIND: check_decision}
+KINDS = ("chat-first-token",) + tuple(OTHER_KINDS)
 TOP = 20
 PROMPT_SLACK = 3  # a chat template may render a prompt a token or two longer or shorter, the same on every question
 # An answer whose first tokens are its template's framing, which the API leaves out, holds no token at max_tokens 1.
@@ -209,10 +218,18 @@ def report(model, fingerprint, verdict, receipts, keys, sampled, seconds):
 
 
 def check_one(model, path, key, keys):
-    """0 matches and signed, 1 anything else, 2 cannot tell."""
+    """0 matches and signed, 1 anything else, 2 cannot tell. A transcription or a decision fingerprint is checked by
+    its own module, which reads no receipt: its answers carry none."""
     started = time.time()
     try:
         fingerprint = load_fingerprint(path)
+    except (OSError, ValueError) as error:
+        print("%s could not be checked: %s" % (model, error))
+        return 1
+    kind = fingerprint.get("kind", "chat-first-token")
+    if kind in OTHER_KINDS:
+        return OTHER_KINDS[kind].check_one(model, path, key, fingerprint)
+    try:
         verdict, receipts, sampled = run_check(model, fingerprint, key, keys)
     except (OSError, ValueError, KeyError, urllib.error.URLError) as error:
         print("%s could not be checked: %s" % (model, error))

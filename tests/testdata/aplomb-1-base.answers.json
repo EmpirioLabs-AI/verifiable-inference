@@ -1,0 +1,465 @@
+{
+ "what": "the answers the base checkpoint aplomb-1 was trained from gives to the fingerprint's requests through aplomb-1's published reference code: for the offline test that another model does not match",
+ "weights": "Qwen/Qwen3.5-4B",
+ "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+ "answers": [
+  {
+   "urgent": {
+    "type": "noul",
+    "noul": 0.9701085,
+    "confidence": 0.94021701
+   },
+   "refund": {
+    "type": "noul",
+    "noul": 0.88291759,
+    "confidence": 0.76583518
+   },
+   "team": {
+    "type": "choice",
+    "choice": "shipping",
+    "probabilities": {
+     "shipping": 0.56240766,
+     "billing": 0.0472222,
+     "technical": 0.0496511,
+     "sales": 0.34071903
+    },
+    "confidence": 0.41654355
+   },
+   "mood": {
+    "type": "score",
+    "score": 0.96824287,
+    "legend": {
+     "0": "Calm",
+     "1": "Annoyed",
+     "2": "Frustrated",
+     "3": "Very angry"
+    },
+    "probabilities": {
+     "0": 0.05802938,
+     "1": 0.92215813,
+     "2": 0.01335275,
+     "3": 0.00645975
+    },
+    "confidence": 0.89621083
+   },
+   "carrier": {
+    "type": "choice",
+    "choice": "ups",
+    "probabilities": {
+     "ups": 0.35964818,
+     "fedex": 0.14254879,
+     "dhl": 0.14769925,
+     "usps": 0.35010378
+    },
+    "confidence": 0.14619757,
+    "abstain": 0.19200324
+   },
+   "order_number": {
+    "type": "noul",
+    "noul": 0.85317653,
+    "confidence": 0.70635306,
+    "abstain": 0.04451002
+   }
+  },
+  {
+   "sentiment": {
+    "type": "choice",
+    "choice": "positive",
+    "probabilities": {
+     "positive": 0.41649531,
+     "negative": 0.08781423,
+     "mixed": 0.09490237,
+     "neutral": 0.40078809
+    },
+    "confidence": 0.22199375
+   },
+   "recommend": {
+    "type": "noul",
+    "noul": 0.85539859,
+    "confidence": 0.71079718
+   },
+   "stars": {
+    "type": "score",
+    "score": 0.96778364,
+    "legend": {
+     "0": "1 star",
+     "1": "2 stars",
+     "2": "3 stars",
+     "3": "4 stars",
+     "4": "5 stars"
+    },
+    "probabilities": {
+     "0": 0.08206659,
+     "1": 0.88318861,
+     "2": 0.02390781,
+     "3": 0.00656855,
+     "4": 0.00426844
+    },
+    "confidence": 0.85398576
+   },
+   "defect": {
+    "type": "noul",
+    "noul": 0.96140558,
+    "confidence": 0.92281116
+   },
+   "complaint": {
+    "type": "choice",
+    "choice": "price",
+    "probabilities": {
+     "power": 0.39510303,
+     "noise": 0.07610273,
+     "durability": 0.06839655,
+     "price": 0.46039769
+    },
+    "confidence": 0.28053025
+   }
+  },
+  {
+   "paid": {
+    "type": "noul",
+    "noul": 0.9789929,
+    "confidence": 0.9579858
+   },
+   "return_open": {
+    "type": "noul",
+    "noul": 0.966108,
+    "confidence": 0.932216,
+    "abstain": 0.02697238
+   },
+   "tier": {
+    "type": "choice",
+    "choice": "bronze",
+    "probabilities": {
+     "bronze": 0.36532792,
+     "silver": 0.11961428,
+     "gold": 0.18768168,
+     "platinum": 0.32737612
+    },
+    "confidence": 0.15377056
+   },
+   "tenure": {
+    "type": "score",
+    "score": 0.98018843,
+    "legend": {
+     "0": "Under a year",
+     "1": "One to three years",
+     "2": "Three to six years",
+     "3": "More than six years"
+    },
+    "probabilities": {
+     "0": 0.07937372,
+     "1": 0.87175608,
+     "2": 0.03817826,
+     "3": 0.01069195
+    },
+    "confidence": 0.82900811
+   },
+   "discount": {
+    "type": "noul",
+    "noul": 0.96245588,
+    "confidence": 0.92491176
+   },
+   "gift": {
+    "type": "noul",
+    "noul": 0.92972357,
+    "confidence": 0.85944714,
+    "abstain": 0.11164836
+   }
+  },
+  {
+   "topic": {
+    "type": "choice",
+    "choice": "transport",
+    "probabilities": {
+     "transport": 0.54211366,
+     "finance": 0.06533859,
+     "education": 0.05857879,
+     "health": 0.33396897
+    },
+    "confidence": 0.38948488
+   },
+   "parking": {
+    "type": "noul",
+    "noul": 0.97560144,
+    "confidence": 0.95120288
+   },
+   "start": {
+    "type": "choice",
+    "choice": "january",
+    "probabilities": {
+     "january": 0.48709128,
+     "february": 0.173453,
+     "march": 0.33945572
+    },
+    "confidence": 0.23063692,
+    "abstain": 0.04483523
+   },
+   "dispute": {
+    "type": "score",
+    "score": 0.98210557,
+    "legend": {
+     "0": "Not controversial",
+     "1": "Somewhat controversial",
+     "2": "Very controversial"
+    },
+    "probabilities": {
+     "0": 0.045912,
+     "1": 0.92607043,
+     "2": 0.02801757
+    },
+    "confidence": 0.88910565
+   }
+  },
+  {
+   "intent": {
+    "type": "choice",
+    "choice": "upgrade",
+    "probabilities": {
+     "upgrade": 0.59653752,
+     "cancel": 0.05237532,
+     "complaint": 0.04546084,
+     "question": 0.30562633
+    },
+    "confidence": 0.46205002
+   },
+   "new_payment": {
+    "type": "noul",
+    "noul": 0.97473081,
+    "confidence": 0.94946163
+   },
+   "satisfaction": {
+    "type": "score",
+    "score": 1.01368779,
+    "legend": {
+     "0": "Insatisfecho",
+     "1": "Neutral",
+     "2": "Satisfecho"
+    },
+    "probabilities": {
+     "0": 0.04203385,
+     "1": 0.9022445,
+     "2": 0.05572164
+    },
+    "confidence": 0.85336675
+   },
+   "language": {
+    "type": "choice",
+    "choice": "spanish",
+    "probabilities": {
+     "spanish": 0.57323407,
+     "portuguese": 0.06756571,
+     "italian": 0.06049733,
+     "catalan": 0.29870288
+    },
+    "confidence": 0.43097876
+   }
+  },
+  {
+   "empty_fails": {
+    "type": "noul",
+    "noul": 0.96842705,
+    "confidence": 0.93685411
+   },
+   "language": {
+    "type": "choice",
+    "choice": "python",
+    "probabilities": {
+     "python": 0.49673916,
+     "javascript": 0.0901208,
+     "ruby": 0.07971814,
+     "go": 0.33342191
+    },
+    "confidence": 0.32898554
+   },
+   "quality": {
+    "type": "score",
+    "score": 1.04123011,
+    "legend": {
+     "0": "Not ready",
+     "1": "Needs work",
+     "2": "Acceptable",
+     "3": "Good",
+     "4": "Excellent"
+    },
+    "probabilities": {
+     "0": 0.06915159,
+     "1": 0.85350475,
+     "2": 0.05374809,
+     "3": 0.0141531,
+     "4": 0.00944246
+    },
+    "confidence": 0.81688094
+   },
+   "needs_test": {
+    "type": "noul",
+    "noul": 0.95718009,
+    "confidence": 0.91436018
+   }
+  },
+  {
+   "duration": {
+    "type": "choice",
+    "choice": "2h15",
+    "probabilities": {
+     "2h15": 0.38897039,
+     "2h45": 0.11784583,
+     "2h55": 0.12632533,
+     "3h05": 0.36685846
+    },
+    "confidence": 0.18529385
+   },
+   "over_two_hours": {
+    "type": "noul",
+    "noul": 0.91885074,
+    "confidence": 0.83770148
+   },
+   "weekday": {
+    "type": "choice",
+    "choice": "monday",
+    "probabilities": {
+     "monday": 0.44590178,
+     "tuesday": 0.04907676,
+     "wednesday": 0.02777907,
+     "thursday": 0.04944245,
+     "friday": 0.42779994
+    },
+    "confidence": 0.30737722,
+    "abstain": 0.08071159
+   },
+   "length": {
+    "type": "score",
+    "score": 0.94970966,
+    "legend": {
+     "0": "Short",
+     "1": "Moderate",
+     "2": "Long",
+     "3": "Very long"
+    },
+    "probabilities": {
+     "0": 0.08564524,
+     "1": 0.88548514,
+     "2": 0.02238432,
+     "3": 0.00648529
+    },
+    "confidence": 0.84731352
+   }
+  },
+  {
+   "phishing": {
+    "type": "noul",
+    "noul": 0.97898615,
+    "confidence": 0.9579723
+   },
+   "category": {
+    "type": "choice",
+    "choice": "phishing",
+    "probabilities": {
+     "phishing": 0.51919251,
+     "spam": 0.04119005,
+     "notice": 0.05465767,
+     "marketing": 0.38495977
+    },
+    "confidence": 0.35892335
+   },
+   "risk": {
+    "type": "score",
+    "score": 0.97444642,
+    "legend": {
+     "0": "Low",
+     "1": "Medium",
+     "2": "High",
+     "3": "Critical"
+    },
+    "probabilities": {
+     "0": 0.07162616,
+     "1": 0.89107645,
+     "2": 0.02852221,
+     "3": 0.00877518
+    },
+    "confidence": 0.8547686
+   },
+   "sender": {
+    "type": "choice",
+    "choice": "online shop",
+    "probabilities": {
+     "bank": 0.33728029,
+     "email provider": 0.27949665,
+     "online shop": 0.38322305
+    },
+    "confidence": 0.07483458,
+    "abstain": 0.10665429
+   }
+  },
+  {
+   "time_of_day": {
+    "type": "choice",
+    "choice": "evening",
+    "probabilities": {
+     "morning": 0.35835161,
+     "afternoon": 0.26733329,
+     "evening": 0.3743151
+    },
+    "confidence": 0.06147265
+   },
+   "share_early": {
+    "type": "noul",
+    "noul": 0.97653631,
+    "confidence": 0.95307262
+   },
+   "length": {
+    "type": "score",
+    "score": 0.9565256,
+    "legend": {
+     "0": "Under an hour",
+     "1": "About an hour",
+     "2": "Two hours or more"
+    },
+    "probabilities": {
+     "0": 0.06996976,
+     "1": 0.90353488,
+     "2": 0.02649536
+    },
+    "confidence": 0.85530232
+   }
+  },
+  {
+   "next_step": {
+    "type": "tool",
+    "tool": null,
+    "probabilities": {
+     "send_replacement": 0.39231249,
+     "issue_refund": 0.06690459,
+     "escalate_to_human": 0.0766933,
+     "none": 0.46408962
+    },
+    "confidence": 0.28545283,
+    "arguments": {
+     "send_replacement": {
+      "reason": {
+       "value": "defective",
+       "probabilities": {
+        "defective": 0.47699184,
+        "damaged": 0.10628622,
+        "wrong_item": 0.41672195
+       },
+       "confidence": 0.21548776
+      },
+      "express": {
+       "value": true,
+       "probability_true": 0.89718772,
+       "confidence": 0.79437545
+      }
+     },
+     "issue_refund": {
+      "full_refund": {
+       "value": true,
+       "probability_true": 0.85033281,
+       "confidence": 0.70066562
+      }
+     }
+    },
+    "open_arguments": {}
+   }
+  }
+ ]
+}

@@ -23,4 +23,4 @@ jobs:
       - name: The README lists every fingerprint
         run: python scripts/readme_table.py --check
       - name: Every script compiles on the oldest supported Python
-        run: python -m py_compile check_model.py check_receipt.py make_fingerprint.py scripts/readme_table.py
+        run: python -m py_compile check_model.py check_receipt.py check_transcription.py check_decision.py make_fingerprint.py scripts/readme_table.py

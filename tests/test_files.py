@@ -1,5 +1,6 @@
-"""Offline tests of the published files: every fingerprint names public weights exactly and holds only what a check
-needs, the key list is consistent, and the README lists every fingerprint. Run with: python -m unittest discover -s tests"""
+"""Offline tests of the published files: every fingerprint names public weights exactly and holds only what its kind's
+check needs, the clips beside a transcription fingerprint are the files it records, the key list is consistent, and
+the README lists every fingerprint. Run with: python -m unittest discover -s tests"""
 import base64
 import hashlib
 import json
@@ -12,40 +13,82 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FINGERPRINTS = os.path.join(ROOT, "fingerprints")
 KEYS = os.path.join(ROOT, "keys", "receipt-keys.json")
-FIELDS = {"kind", "model", "weights", "revision", "weight_files_sha256", "system", "made_with", "made_at", "limits", "rows",
-          "request"}
-REQUIRED = FIELDS - {"request"}
+# Every kind: the fields a file may hold, and the ones it must.
+COMMON = {"kind", "model", "weights", "revision", "weight_files_sha256", "made_with", "made_at", "limits"}
+FIELDS = {
+    "chat-first-token": COMMON | {"system", "rows", "request"},
+    "transcription": COMMON | {"request", "clips"},
+    "decision": COMMON | {"requests"},
+}
+REQUIRED = {
+    "chat-first-token": FIELDS["chat-first-token"] - {"request"},
+    "transcription": FIELDS["transcription"],
+    "decision": FIELDS["decision"],
+}
+LIMITS = {
+    "chat-first-token": {"typical_gap", "first_token"},
+    "transcription": {"same_transcript", "language_gap", "logprob_gap"},
+    "decision": {"same_answer", "typical_gap"},
+}
+CLIP_FIELDS = {"file", "sha256", "seconds", "source", "license", "cut", "processing", "language", "languages", "tokens",
+               "text", "avg_logprob", "no_speech_prob"}
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 REPOSITORY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")
+MADE_AT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+
+def files(kind=None):
+    names = sorted(name for name in os.listdir(FINGERPRINTS) if name.endswith(".json"))
+    for name in names:
+        with open(os.path.join(FINGERPRINTS, name), encoding="utf-8") as handle:
+            data = json.load(handle)
+        if kind is None or data.get("kind") == kind:
+            yield name, data
 
 
 class Fingerprints(unittest.TestCase):
-    def files(self):
-        names = sorted(name for name in os.listdir(FINGERPRINTS) if name.endswith(".json"))
-        self.assertTrue(names)
-        for name in names:
-            with open(os.path.join(FINGERPRINTS, name), encoding="utf-8") as handle:
-                yield name, json.load(handle)
+    def test_every_file_is_of_a_kind_a_check_reads(self):
+        found = list(files())
+        self.assertTrue(found)
+        for name, data in found:
+            self.assertIn(data.get("kind"), FIELDS, name)
 
     def test_each_file_names_public_weights_exactly_and_nothing_else(self):
-        for name, data in self.files():
-            self.assertLessEqual(set(data), FIELDS, name)
-            self.assertLessEqual(REQUIRED, set(data), name)
-            self.assertEqual(data["kind"], "chat-first-token", name)
+        for name, data in files():
+            kind = data["kind"]
+            self.assertLessEqual(set(data), FIELDS[kind], name)
+            self.assertLessEqual(REQUIRED[kind], set(data), name)
             self.assertEqual(name, data["model"] + ".json")
             self.assertRegex(data["model"], MODEL_ID)
             self.assertRegex(data["weights"], REPOSITORY)
             self.assertRegex(data["revision"], HEX40)
+            self.assertRegex(data["made_at"], MADE_AT)
+            self.assertIsInstance(data["made_with"], str)
             self.assertTrue(data["weight_files_sha256"], name)
             for file_name, digest in data["weight_files_sha256"].items():
                 self.assertTrue(file_name.endswith(".safetensors"), (name, file_name))
                 self.assertRegex(digest, HEX64)
 
-    def test_each_file_asks_the_same_questions_and_holds_twenty_tokens_each(self):
+    def test_each_limit_is_stated_and_not_loose(self):
+        for name, data in files():
+            limits = data["limits"]
+            self.assertLessEqual(LIMITS[data["kind"]], set(limits), name)
+            if data["kind"] == "chat-first-token":
+                self.assertGreaterEqual(limits["first_token"], 0.8, name)
+                self.assertLessEqual(limits["typical_gap"], 0.25, name)
+            elif data["kind"] == "transcription":
+                self.assertTrue(0.8 <= limits["same_transcript"] <= 1, name)
+                self.assertTrue(0 < limits["language_gap"] <= 0.2, name)
+                self.assertTrue(0 < limits["logprob_gap"] <= 0.05, name)
+            else:
+                self.assertTrue(0.8 <= limits["same_answer"] <= 1, name)
+                self.assertTrue(0 < limits["typical_gap"] <= 0.05, name)
+
+    def test_each_chat_file_asks_the_same_questions_and_holds_twenty_tokens_each(self):
         questions = None
-        for name, data in self.files():
+        for name, data in files("chat-first-token"):
             rows = data["rows"]
             self.assertEqual(len(rows), 50, name)
             asked = [row["question"] for row in rows]
@@ -59,10 +102,52 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(all(isinstance(token, str) and value <= 0 for token, value in row["top"]),
                                 (name, row["question"]))
 
-    def test_each_limit_is_stated_and_not_loose(self):
-        for name, data in self.files():
-            self.assertGreaterEqual(data["limits"]["first_token"], 0.8, name)
-            self.assertLessEqual(data["limits"]["typical_gap"], 0.25, name)
+    def test_each_transcription_file_holds_public_domain_clips_it_records_exactly(self):
+        for name, data in files("transcription"):
+            folder = data["model"]
+            self.assertIsInstance(data["request"], dict, name)
+            self.assertTrue(data["request"], name)
+            self.assertGreaterEqual(len(data["clips"]), 10, name)
+            total = 0
+            for clip in data["clips"]:
+                self.assertEqual(set(clip), CLIP_FIELDS, (name, clip.get("file")))
+                directory, base = clip["file"].split("/")
+                self.assertEqual(directory, folder, clip["file"])
+                with open(os.path.join(FINGERPRINTS, folder, base), "rb") as handle:
+                    raw = handle.read()
+                total += len(raw)
+                self.assertEqual(hashlib.sha256(raw).hexdigest(), clip["sha256"], clip["file"])
+                self.assertEqual(raw[:4], b"fLaC", clip["file"])
+                self.assertLessEqual(clip["seconds"], 10, clip["file"])
+                self.assertIn("public domain", clip["license"].lower(), clip["file"])
+                sources = clip["source"] if isinstance(clip["source"], list) else [clip["source"]]
+                self.assertTrue(all(s.startswith("https://") for s in sources), clip["file"])
+                self.assertEqual(len(clip["languages"]), 10, clip["file"])
+                self.assertTrue(all(isinstance(code, str) and value <= 0 for code, value in clip["languages"]),
+                                clip["file"])
+                self.assertEqual(clip["language"], clip["languages"][0][0], clip["file"])
+                self.assertTrue(clip["tokens"] and all(isinstance(t, int) for t in clip["tokens"]), clip["file"])
+                self.assertIsInstance(clip["text"], str)
+                self.assertLessEqual(clip["avg_logprob"], 0, clip["file"])
+            self.assertLessEqual(total, 1500000, name)
+            # The folder holds the recorded clips and nothing else.
+            self.assertEqual(sorted(os.listdir(os.path.join(FINGERPRINTS, folder))),
+                             sorted(clip["file"].split("/")[1] for clip in data["clips"]), name)
+
+    def test_each_decision_file_holds_requests_with_an_answer_for_every_question(self):
+        for name, data in files("decision"):
+            self.assertTrue(data["requests"], name)
+            for request in data["requests"]:
+                self.assertEqual(set(request), {"state", "questions", "answers"}, name)
+                self.assertTrue(request["questions"], name)
+                self.assertEqual(set(request["answers"]), set(request["questions"]), name)
+            self.assertGreaterEqual(sum(len(r["answers"]) for r in data["requests"]), 40, name)
+
+    def test_nothing_but_the_clips_of_a_transcription_file_sits_beside_the_fingerprints(self):
+        folders = {data["model"] for _, data in files("transcription")}
+        for entry in os.listdir(FINGERPRINTS):
+            if not entry.endswith(".json"):
+                self.assertIn(entry, folders, entry)
 
 
 class Keys(unittest.TestCase):

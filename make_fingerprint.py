@@ -2,6 +2,8 @@
 
 EmpirioLabs makes each fingerprint once, from the public checkpoint the model's catalog entry names, and nobody who
 checks a model needs to run this. It is here so that anyone can make a fingerprint again and compare it with ours.
+This script makes a chat model's fingerprint; `check_transcription.py make` and `check_decision.py make` make the
+transcription and decision kinds.
 
     pip install torch transformers huggingface_hub safetensors
     python make_fingerprint.py make --weights Qwen/Qwen3.5-9B --revision <commit> --model qwen3-5-9b \
@@ -73,12 +75,14 @@ def make(args):
 
 
 def default_questions():
-    """The questions of an existing fingerprint, so a fingerprint made again asks exactly what ours asked."""
+    """The questions of an existing chat fingerprint, so a fingerprint made again asks exactly what ours asked."""
     here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fingerprints")
     for name in sorted(os.listdir(here)):
         if name.endswith(".json"):
             with open(os.path.join(here, name), encoding="utf-8") as handle:
-                return [row["question"] for row in json.load(handle)["rows"]]
+                data = json.load(handle)
+            if data.get("kind", "chat-first-token") == "chat-first-token":
+                return [row["question"] for row in data["rows"]]
     raise SystemExit("no fingerprint to take the questions from; pass --questions <file.json>")
 
 

@@ -1,23 +1,28 @@
 """Offline tests of check_model.py: a model matches its own fingerprint and another's numbers do not, a prompt that
 reached the model changed never matches, near-certain questions alone can never say "matches", framing the API leaves
-out is skipped by position, and an API without a list of alternatives is read from sampled answers.
-Run with: python -m unittest discover -s tests"""
+out is skipped by position, an API without a list of alternatives is read from sampled answers, and every fingerprint
+is run by the check of its kind. Run with: python -m unittest discover -s tests"""
+import contextlib
 import copy
+import io
 import json
 import os
 import sys
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import check_model as cm  # noqa: E402
 
-FINGERPRINTS = sorted(name for name in os.listdir(os.path.join(ROOT, "fingerprints")) if name.endswith(".json"))
-
 
 def load(name):
     with open(os.path.join(ROOT, "fingerprints", name), encoding="utf-8") as handle:
         return json.load(handle)
+
+
+ALL = sorted(name for name in os.listdir(os.path.join(ROOT, "fingerprints")) if name.endswith(".json"))
+FINGERPRINTS = [name for name in ALL if load(name).get("kind", "chat-first-token") == "chat-first-token"]
 
 
 def answers_from(fingerprint, offset=0):
@@ -159,6 +164,32 @@ class Asking(unittest.TestCase):
         rows = [{"question": "q", "prompt_tokens": 30, "top": [["A", -0.1]] + [["x%d" % i, -9.0 - i] for i in range(19)]}]
         verdict, _, sampled = cm.run_check("m", {"system": "s", "rows": rows, "limits": {}}, "key", None, post=post)
         self.assertEqual((calls, sampled, verdict["same_first"]), ([1], 0, 1))
+
+    def test_every_fingerprint_is_of_a_kind_this_script_checks(self):
+        for name in ALL:
+            self.assertIn(cm.load_fingerprint(os.path.join(ROOT, "fingerprints", name)).get("kind", "chat-first-token"),
+                          cm.KINDS, name)
+
+    def test_all_runs_every_fingerprint_through_the_check_of_its_kind(self):
+        seen = []
+
+        def chat(model, fingerprint, key, keys, samples=cm.SAMPLES, post=None):
+            seen.append((model, "chat-first-token"))
+            return score(fingerprint, answers_from(fingerprint)), [], 0
+
+        def other(kind):
+            def check_one(model, path, key, fingerprint=None):
+                seen.append((model, kind))
+                return 0
+            return check_one
+        with mock.patch.object(cm, "run_check", chat), \
+                mock.patch.object(cm.check_transcription, "check_one", other("transcription")), \
+                mock.patch.object(cm.check_decision, "check_one", other("decision")), \
+                mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "not-a-key"}), contextlib.redirect_stdout(io.StringIO()):
+            code = cm.main(["--all", "--keys", "none"])
+        self.assertEqual(code, 0)
+        self.assertEqual(seen, [(name[:-len(".json")], load(name).get("kind", "chat-first-token")) for name in ALL])
+        self.assertTrue({"chat-first-token", "transcription", "decision"} <= {kind for _, kind in seen})
 
     def test_the_request_is_the_documented_one_and_a_file_can_add_settings(self):
         body = cm.request_body("m", {"system": "s", "request": {"reasoning_effort": "low"}}, "q")
