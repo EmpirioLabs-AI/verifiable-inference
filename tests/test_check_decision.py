@@ -1,7 +1,8 @@
 """Offline tests of check_decision.py, with the API replaced by a table: the model's own probabilities match, a
 little noise still matches, another model's probabilities, probabilities moved past the limit, other answers or a
 missing answer never do, an API that does not answer gives no verdict, the request sent is the fingerprint's own,
-check_model.py runs this check for a decision fingerprint, and the check needs only the standard library.
+a caller can send the requests through its own post, check_model.py runs this check for a decision fingerprint,
+and the check needs only the standard library.
 Run with: python -m unittest discover -s tests"""
 import ast
 import contextlib
@@ -43,7 +44,7 @@ def run(change, path=REAL, check=None):
     """check_one() with every request answered by `change(the fingerprint's own answers for it)`; (exit, output)."""
     by_state = dict((key_of(r["state"]), r["answers"]) for r in load(path)["requests"])
 
-    def ask(model, body, key):
+    def ask(model, body, key, post=None):
         return change(json.loads(json.dumps(by_state[key_of(body["state"])])))
     out = io.StringIO()
     with mock.patch.object(cd, "ask", ask), contextlib.redirect_stdout(out):
@@ -96,7 +97,7 @@ class Verdict(unittest.TestCase):
         other = load(OTHER)["answers"]
         by_state = dict((key_of(body["state"]), a) for body, a in zip(cd.REQUESTS, other))
         out = io.StringIO()
-        with mock.patch.object(cd, "ask", lambda model, body, key: by_state[key_of(body["state"])]), \
+        with mock.patch.object(cd, "ask", lambda model, body, key, post=None: by_state[key_of(body["state"])]), \
                 contextlib.redirect_stdout(out):
             code = cd.check_one("aplomb-1", REAL, "not-a-key")
         self.assertEqual(code, 1, out.getvalue())
@@ -132,7 +133,7 @@ class Verdict(unittest.TestCase):
 
 class Asking(unittest.TestCase):
     def test_an_api_that_does_not_answer_gives_no_verdict(self):
-        def fail(model, body, key):
+        def fail(model, body, key, post=None):
             raise cd.Unanswered("HTTP 503: try again")
         out = io.StringIO()
         with mock.patch.object(cd, "ask", fail), contextlib.redirect_stdout(out):
@@ -154,11 +155,43 @@ class Asking(unittest.TestCase):
         self.assertEqual(sent, [("/decisions", {"model": "aplomb-1", "state": body["state"],
                                                 "questions": body["questions"]})])
 
+    def test_a_caller_can_send_through_its_own_post(self):
+        fingerprint = load(REAL)
+        by_state = dict((key_of(r["state"]), r["answers"]) for r in fingerprint["requests"])
+        sent = []
+
+        def post(body, key):
+            sent.append(body)
+            return json.dumps(body).encode(), json.dumps({"answers": by_state[key_of(body["state"])]}).encode()
+
+        def unused(*args, **kwargs):
+            raise AssertionError("the default post was used")
+        with mock.patch.object(cd.check_receipt, "post", unused):
+            v, live = cd.run_check("aplomb-1", fingerprint, "not-a-key", post=post)
+        self.assertEqual(v["result"], "matches")
+        self.assertEqual(sent, [{"model": "aplomb-1", "state": r["state"], "questions": r["questions"]}
+                                for r in fingerprint["requests"]])
+        # An answer the caller's post returns that is not an answer is still no verdict.
+        with self.assertRaises(cd.Unanswered):
+            cd.ask("aplomb-1", fingerprint["requests"][0], "not-a-key", post=lambda body, key: (b"{}", b"<html>"))
+
+    def test_an_error_of_the_callers_own_post_reaches_the_caller(self):
+        class Stop(Exception):
+            pass
+
+        def post(body, key):
+            raise Stop("no time left")
+
+        def unused(*args, **kwargs):
+            raise AssertionError("the default post was used")
+        with mock.patch.object(cd.check_receipt, "post", unused), self.assertRaises(Stop):
+            cd.run_check("aplomb-1", load(REAL), "not-a-key", post=post)
+
     def test_the_command_line_check_writes_the_answers(self):
         by_state = dict((key_of(r["state"]), r["answers"]) for r in load(REAL)["requests"])
         with tempfile.TemporaryDirectory() as folder:
             target = os.path.join(folder, "answers.json")
-            with mock.patch.object(cd, "ask", lambda model, body, key: by_state[key_of(body["state"])]), \
+            with mock.patch.object(cd, "ask", lambda model, body, key, post=None: by_state[key_of(body["state"])]), \
                     mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "k"}), contextlib.redirect_stdout(io.StringIO()):
                 code = cd.main(["check", "--model", "aplomb-1", "--out", target])
             written = load(target)

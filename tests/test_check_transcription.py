@@ -1,9 +1,11 @@
 """Offline tests of check_transcription.py, with the API replaced by a table: the model's own numbers match, a little
 noise still matches, another real model's numbers, another transcript or a missing field never do, the check reads
 nothing but the numbers it compares, a job answer is followed to its end, an API that does not answer gives no
-verdict, a changed clip is never sent, check_model.py runs this check for a transcription fingerprint, and the check
-needs only the standard library. Run with: python -m unittest discover -s tests"""
+verdict, a changed clip is never sent, a caller can send the requests through its own call, check_model.py runs
+this check for a transcription fingerprint, and the check needs only the standard library. Run with: python -m
+unittest discover -s tests"""
 import ast
+import base64
 import contextlib
 import hashlib
 import io
@@ -50,7 +52,7 @@ def run(answer, path=REAL, check=None):
     """check_one() with every clip answered by `answer(the fingerprint's row for it)`; (exit status, output)."""
     rows = dict((row["sha256"], row) for row in load(path)["clips"])
 
-    def ask(model, clip, suffix, key, settings):
+    def ask(model, clip, suffix, key, settings, call=None):
         return answer(rows[hashlib.sha256(clip).hexdigest()])
     out = io.StringIO()
     with mock.patch.object(ct, "ask", ask), contextlib.redirect_stdout(out):
@@ -163,11 +165,47 @@ class Asking(unittest.TestCase):
             self.assertEqual(ct.ask("m", b"fLaC", ".flac", "k"), {"text": "done"})
         self.assertEqual(calls, [("POST", "/v1/audio/transcriptions"), ("GET", "/v1/jobs/job%2F2")])
 
+    def test_a_caller_can_send_through_its_own_call(self):
+        fingerprint = load(REAL)
+        rows = dict((row["sha256"], row) for row in fingerprint["clips"])
+        calls, running = [], []
+
+        def call(method, path, key, body=None):
+            calls.append((method, path))
+            if method == "GET":
+                return 200, {"job_id": "job_1", "status": "completed", "result": api_answer(running.pop())}
+            row = rows[hashlib.sha256(base64.b64decode(body["audio_base64"])).hexdigest()]
+            self.assertEqual(dict((name, body[name]) for name in fingerprint["request"]), fingerprint["request"])
+            if len(calls) == 1:  # the first clip is still running: its job is polled through the same call
+                running.append(row)
+                return 202, {"job_id": "job_1", "status": "processing", "poll_url": "/v1/jobs/job_1"}
+            return 200, api_answer(row)
+
+        def unused(*args, **kwargs):
+            raise AssertionError("the default call was used")
+        with mock.patch.object(ct, "_call", unused), mock.patch.object(ct.time, "sleep", lambda seconds: None):
+            v, answers = ct.run_check("whisper-large-v3-turbo", fingerprint, FINGERPRINTS, "not-a-key", call=call)
+        self.assertEqual(v["result"], "matches")
+        self.assertEqual(calls, [("POST", "/v1/audio/transcriptions"), ("GET", "/v1/jobs/job_1")]
+                         + [("POST", "/v1/audio/transcriptions")] * (len(fingerprint["clips"]) - 1))
+
+    def test_an_error_of_the_callers_own_call_reaches_the_caller(self):
+        class Stop(Exception):
+            pass
+
+        def call(method, path, key, body=None):
+            raise Stop("no time left")
+
+        def unused(*args, **kwargs):
+            raise AssertionError("the default call was used")
+        with mock.patch.object(ct, "_call", unused), self.assertRaises(Stop):
+            ct.run_check("whisper-large-v3-turbo", load(REAL), FINGERPRINTS, "not-a-key", call=call)
+
     def test_the_request_is_sent_to_the_public_api(self):
         self.assertEqual(ct.ORIGIN, "https://api.empiriolabs.ai")
 
     def test_an_api_that_does_not_answer_gives_no_verdict(self):
-        def fail(model, clip, suffix, key, settings):
+        def fail(model, clip, suffix, key, settings, call=None):
             raise ct.Unanswered("HTTP 503: try again")
         out = io.StringIO()
         with mock.patch.object(ct, "ask", fail), contextlib.redirect_stdout(out):
@@ -191,7 +229,7 @@ class Asking(unittest.TestCase):
                 json.dump(data, handle)
             sent = []
             out = io.StringIO()
-            with mock.patch.object(ct, "ask", lambda *a: sent.append(a)), contextlib.redirect_stdout(out):
+            with mock.patch.object(ct, "ask", lambda *a, **k: sent.append(a)), contextlib.redirect_stdout(out):
                 code = ct.check_one("whisper-large-v3-turbo", copy, "not-a-key")
         self.assertEqual((code, sent), (1, []))
         self.assertIn("not the clip", out.getvalue())
@@ -201,7 +239,7 @@ class Asking(unittest.TestCase):
         rows = dict((row["sha256"], row) for row in load(REAL)["clips"])
         with tempfile.TemporaryDirectory() as folder:
             target = os.path.join(folder, "answers.json")
-            with mock.patch.object(ct, "ask", lambda model, clip, suffix, key, settings: api_answer(
+            with mock.patch.object(ct, "ask", lambda model, clip, suffix, key, settings, call=None: api_answer(
                     rows[hashlib.sha256(clip).hexdigest()])), mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "k"}), \
                     contextlib.redirect_stdout(io.StringIO()):
                 code = ct.main(["check", "--model", "whisper-large-v3-turbo", "--out", target])

@@ -210,12 +210,15 @@ def _call(method, path, key, body=None):
         raise Unanswered("%s: %s" % (type(error).__name__, error)) from None
 
 
-def ask(model, clip_bytes, suffix, key, settings=None):
+def ask(model, clip_bytes, suffix, key, settings=None, call=None):
     """One transcription with the fingerprint's settings, the audio sent inline as a customer may send it. A
-    transcription that is still running answers 202 with a job, which is polled to its end."""
+    transcription that is still running answers 202 with a job, which is polled to its end. `call(method, path, key,
+    body=None)` sends one request and returns (the HTTP status, the JSON answer), as _call does, which is the
+    default."""
+    call = call or _call
     body = {"model": model, "audio_base64": base64.b64encode(clip_bytes).decode(), "audio_suffix": suffix,
             **(REQUEST if settings is None else settings)}
-    status, data = _call("POST", "/v1/audio/transcriptions", key, body)
+    status, data = call("POST", "/v1/audio/transcriptions", key, body)
     deadline = time.time() + 900
     while status == 202 or data.get("status") in ("queued", "processing", "running"):
         if time.time() > deadline:
@@ -225,7 +228,7 @@ def ask(model, clip_bytes, suffix, key, settings=None):
         poll = data.get("poll_url")
         if not (isinstance(poll, str) and poll.startswith("/v1/jobs/")):
             poll = "/v1/jobs/%s" % urllib.parse.quote(str(data.get("job_id") or ""), safe="")
-        status, job = _call("GET", poll, key)
+        status, job = call("GET", poll, key)
         if job.get("status") in ("completed", "succeeded"):
             data = job.get("result") or {}
             break
@@ -290,10 +293,11 @@ def load(path):
     return fingerprint
 
 
-def run_check(model, fingerprint, folder, key):
+def run_check(model, fingerprint, folder, key, call=None):
     """Every clip, each checked against the SHA-256 the fingerprint records before any is sent, then sent once;
     (the verdict, the numbers read from each answer). Raises ValueError for a clip that is not the one the fingerprint
-    was made from and Unanswered when the API gives no transcript."""
+    was made from and Unanswered when the API gives no transcript. A caller can send the requests through its own
+    `call` (ask's), for example to add its own rate limiting and retries."""
     clips = []
     for row in fingerprint["clips"]:
         path = os.path.join(folder, row["file"])
@@ -305,7 +309,7 @@ def run_check(model, fingerprint, folder, key):
     answers = []
     for clip, suffix in clips:
         try:
-            answers.append(read_answer(ask(model, clip, suffix, key, fingerprint["request"])))
+            answers.append(read_answer(ask(model, clip, suffix, key, fingerprint["request"], call=call)))
         except Unanswered as error:
             raise Unanswered("the API did not answer clip %d: %s" % (len(answers) + 1, error)) from None
     return verdict(fingerprint, answers), answers

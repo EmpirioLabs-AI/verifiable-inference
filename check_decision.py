@@ -241,11 +241,16 @@ class Unanswered(Exception):
     """The API gave no answer: the check cannot be done, which says nothing about the model."""
 
 
-def ask(model, body, key):
-    """One request of the fingerprint, sent as it was made: the model, the state and the questions. The answers."""
+def _post(body, key):
+    return check_receipt.post("/decisions", body, key, timeout=120)
+
+
+def ask(model, body, key, post=None):
+    """One request of the fingerprint, sent as it was made: the model, the state and the questions. The answers.
+    `post(body, key)` sends the request body and returns (the request bytes sent, the response bytes received), as in
+    check_model.py; the default sends it to /v1/decisions on the API."""
     try:
-        _, received = check_receipt.post("/decisions", {"model": model, "state": body["state"],
-                                                        "questions": body["questions"]}, key, timeout=120)
+        _, received = (post or _post)({"model": model, "state": body["state"], "questions": body["questions"]}, key)
         return json.loads(received)["answers"]
     except urllib.error.HTTPError as error:
         raise Unanswered("HTTP %d: %s" % (error.code, error.read()[:300].decode("utf-8", "replace"))) from None
@@ -286,9 +291,10 @@ def load(path):
     return fingerprint
 
 
-def run_check(model, fingerprint, key):
-    """Every request sent once; (the verdict, the answers). Raises Unanswered when the API gives no answer."""
-    live = [ask(model, body, key) for body in fingerprint["requests"]]
+def run_check(model, fingerprint, key, post=None):
+    """Every request sent once; (the verdict, the answers). Raises Unanswered when the API gives no answer. A caller can
+    send the requests through its own `post` (ask's), for example to add its own rate limiting and retries."""
+    live = [ask(model, body, key, post=post) for body in fingerprint["requests"]]
     return verdict(fingerprint, live), live
 
 
