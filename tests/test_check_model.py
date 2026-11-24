@@ -150,6 +150,16 @@ class Asking(unittest.TestCase):
         asker.top("q")
         self.assertEqual(asker.receipts, [(False, "the response carries no receipt")])
 
+    def test_a_caller_can_send_through_its_own_post(self):
+        calls = []
+
+        def post(body, key):
+            calls.append(body["max_tokens"])
+            return b"{}", json.dumps(answer([entry("A", -0.1)])).encode()
+        rows = [{"question": "q", "prompt_tokens": 30, "top": [["A", -0.1]] + [["x%d" % i, -9.0 - i] for i in range(19)]}]
+        verdict, _, sampled = cm.run_check("m", {"system": "s", "rows": rows, "limits": {}}, "key", None, post=post)
+        self.assertEqual((calls, sampled, verdict["same_first"]), ([1], 0, 1))
+
     def test_the_request_is_the_documented_one_and_a_file_can_add_settings(self):
         body = cm.request_body("m", {"system": "s", "request": {"reasoning_effort": "low"}}, "q")
         self.assertEqual(body["messages"], [{"role": "system", "content": "s"}, {"role": "user", "content": "q"}])

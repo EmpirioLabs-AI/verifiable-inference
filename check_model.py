@@ -90,15 +90,17 @@ def _post(body, key):
 
 
 class Asker:
-    """Sends a check's requests and keeps every answer's receipt verdict."""
+    """Sends a check's requests and keeps every answer's receipt verdict. `post(body, key)` returns (the request bytes
+    sent, the response bytes received); the default retries a rate limit or a server error a few times."""
 
-    def __init__(self, model, fingerprint, key, keys):
+    def __init__(self, model, fingerprint, key, keys, post=None):
         self.model, self.fingerprint, self.key, self.keys = model, fingerprint, key, keys
+        self.post = post or _post
         self.receipts = []
 
     def first_token(self, question, temperature=1.0):
         for max_tokens in (1, ROOM):
-            sent, received = _post(request_body(self.model, self.fingerprint, question, max_tokens, temperature), self.key)
+            sent, received = self.post(request_body(self.model, self.fingerprint, question, max_tokens, temperature), self.key)
             if self.keys is not None:
                 self.receipts.append(check_receipt.check(sent, received, self.keys))
             entry, prompt_tokens = read_answer(json.loads(received))
@@ -165,9 +167,9 @@ def score(rows, answers, limits):
             "offsets": sorted(offsets)[:4]}
 
 
-def run_check(model, fingerprint, key, keys, samples=SAMPLES):
+def run_check(model, fingerprint, key, keys, samples=SAMPLES, post=None):
     """Ask every question; (the verdict, the receipt verdicts, how many questions were read from sampled answers)."""
-    asker = Asker(model, fingerprint, key, keys)
+    asker = Asker(model, fingerprint, key, keys, post=post)
     answers, sampled = [], 0
     for row in fingerprint["rows"]:
         got, prompt_tokens = asker.top(row["question"]) if not sampled else ([], None)
