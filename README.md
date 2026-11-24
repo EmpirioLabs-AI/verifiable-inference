@@ -21,7 +21,7 @@ Check which model answered and that EmpirioLabs served it, for the models Empiri
 
 Two checks, each a single Python file that uses only the standard library:
 
-- **Check a model.** `check_model.py` asks the live API a fixed list of questions for one token each and compares the token probabilities in the answers with a fingerprint made once from the model's public weights. It takes about half a minute and runs no model.
+- **Check a model.** `check_model.py` asks the live API a fixed list of questions for one token each and compares the token probabilities in the answers with a fingerprint made once from the model's public weights. It takes under two minutes and runs no model.
 - **Check a response.** Every successful chat completion from a Native Inference model carries a receipt signed by EmpirioLabs. `check_receipt.py` confirms the signature and that the receipt names your exact request and response.
 
 ## Get started
