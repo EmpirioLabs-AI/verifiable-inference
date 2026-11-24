@@ -265,7 +265,9 @@ def verdict(fingerprint, live_answers):
                 live_label, live_values = numbers(live[qid])
             except (KeyError, TypeError, ValueError):
                 live_label, live_values = None, []
-            gap = max(abs(a - b) for a, b in zip(values, live_values)) if len(live_values) == len(values) else 1.0
+            gap = 1.0
+            if len(live_values) == len(values):
+                gap = max((abs(a - b) for a, b in zip(values, live_values)), default=0.0)
             same += live_label == label
             gaps.append(gap)
             per_question.append((qid, label, live_label, gap))

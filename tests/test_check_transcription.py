@@ -151,6 +151,18 @@ class Asking(unittest.TestCase):
             self.assertEqual(ct.ask("m", b"fLaC", ".flac", "k"), {"text": "done"})
         self.assertEqual(calls, [("POST", "/v1/audio/transcriptions"), ("GET", "/v1/jobs/job_1"), ("GET", "/v1/jobs/job_1")])
 
+    def test_a_job_is_polled_on_the_apis_own_origin_whatever_its_poll_url_says(self):
+        calls = []
+
+        def call(method, path, key, body=None):
+            calls.append((method, path))
+            if method == "POST":
+                return 202, {"job_id": "job/2", "status": "processing", "poll_url": "@elsewhere.example/v1/jobs/job_2"}
+            return 200, {"job_id": "job/2", "status": "completed", "result": {"text": "done"}}
+        with mock.patch.object(ct, "_call", call), mock.patch.object(ct.time, "sleep", lambda seconds: None):
+            self.assertEqual(ct.ask("m", b"fLaC", ".flac", "k"), {"text": "done"})
+        self.assertEqual(calls, [("POST", "/v1/audio/transcriptions"), ("GET", "/v1/jobs/job%2F2")])
+
     def test_the_request_is_sent_to_the_public_api(self):
         self.assertEqual(ct.ORIGIN, "https://api.empiriolabs.ai")
 

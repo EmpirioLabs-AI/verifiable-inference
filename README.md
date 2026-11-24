@@ -9,7 +9,7 @@
 
 # Verifiable inference on EmpirioLabs AI
 
-Check which model answered and that EmpirioLabs served it, for the models EmpirioLabs runs on its own managed GPU infrastructure.
+Check which model answered and that EmpirioLabs served it, for the models EmpirioLabs runs on GPU infrastructure it manages.
 
 <p>
   <a href="https://docs.empiriolabs.ai/verifiable-inference"><img alt="Documentation" src="https://img.shields.io/badge/Docs-Verifiable%20inference-0a66c2?style=flat-square"></a>

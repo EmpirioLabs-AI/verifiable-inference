@@ -221,7 +221,11 @@ def ask(model, clip_bytes, suffix, key, settings=None):
         if time.time() > deadline:
             raise Unanswered("the transcription job did not finish in 15 minutes")
         time.sleep(3)
-        status, job = _call("GET", data.get("poll_url") or "/v1/jobs/%s" % data["job_id"], key)
+        # The job is polled on the API's own origin only: a poll_url that is not a path under /v1/jobs/ is not used.
+        poll = data.get("poll_url")
+        if not (isinstance(poll, str) and poll.startswith("/v1/jobs/")):
+            poll = "/v1/jobs/%s" % urllib.parse.quote(str(data.get("job_id") or ""), safe="")
+        status, job = _call("GET", poll, key)
         if job.get("status") in ("completed", "succeeded"):
             data = job.get("result") or {}
             break
