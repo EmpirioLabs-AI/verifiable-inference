@@ -17,7 +17,7 @@ FINGERPRINTS = os.path.join(ROOT, "fingerprints")
 START = "<!-- fingerprints:start -->"
 END = "<!-- fingerprints:end -->"
 KINDS = {"chat-first-token": "Chat", "transcription": "Transcription", "decision": "Decision", "image": "Image",
-         "ocr": "OCR", "audio": "Audio"}
+         "ocr": "OCR", "audio": "Audio", "video": "Video", "mesh": "3D"}
 
 
 def table():

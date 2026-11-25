@@ -152,7 +152,12 @@ def decode_png(data):
 def thumbnail(data, size=THUMBNAIL):
     """The picture as size x size blocks, each the rounded average red, green and blue of its pixels: a list of
     3 * size * size integers, row by row."""
-    width, height, rows = decode_png(data)
+    return blocks(*decode_png(data), size=size)
+
+
+def blocks(width, height, rows, size=THUMBNAIL):
+    """The thumbnail of a picture given as `rows` (each row three bytes, red, green and blue, per pixel): size x size
+    blocks, each the rounded average of its pixels, row by row. A video frame is read the same way (check_video.py)."""
     if width < size or height < size:
         raise NotAnImage("a picture smaller than its thumbnail")
     out = []

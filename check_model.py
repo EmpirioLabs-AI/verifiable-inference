@@ -7,8 +7,9 @@ answer, with their log-probabilities. This script asks the live API the same que
 covers both what answered and who served it.
 
 A file's `kind` says which check reads it: "transcription" files are checked by check_transcription.py, "decision"
-files by check_decision.py, "image" files by check_image.py, "ocr" files by check_ocr.py and "audio" files by
-check_audio.py, each with the same verdict line and the same receipt check on every answer.
+files by check_decision.py, "image" files by check_image.py, "ocr" files by check_ocr.py, "audio" files
+by check_audio.py, "video" files by check_video.py and "mesh" files by check_mesh.py, each with the same
+verdict line and the same receipt check on every answer.
 
     python check_model.py --model qwen3-5-9b          one model (fingerprints/qwen3-5-9b.json)
     python check_model.py --all                       every model that has a fingerprint
@@ -38,15 +39,18 @@ import urllib.error
 import check_audio
 import check_decision
 import check_image
+import check_mesh
 import check_ocr
 import check_receipt
 import check_transcription
+import check_video
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FINGERPRINTS = os.path.join(HERE, "fingerprints")
 # The check of every kind but chat, by the file's `kind`.
 OTHER_KINDS = {check_transcription.KIND: check_transcription, check_decision.KIND: check_decision,
-               check_image.KIND: check_image, check_ocr.KIND: check_ocr, check_audio.KIND: check_audio}
+               check_image.KIND: check_image, check_ocr.KIND: check_ocr, check_audio.KIND: check_audio,
+               check_video.KIND: check_video, check_mesh.KIND: check_mesh}
 KINDS = ("chat-first-token",) + tuple(OTHER_KINDS)
 TOP = 20
 PROMPT_SLACK = 3  # a chat template may render a prompt a token or two longer or shorter, the same on every question
@@ -222,8 +226,8 @@ def report(model, fingerprint, verdict, receipts, keys, sampled, seconds):
 
 
 def check_one(model, path, key, keys):
-    """0 matches and signed, 1 anything else, 2 cannot tell. A transcription, decision, image, OCR or audio fingerprint
-    is checked by its own module, which checks every answer's receipt with the same keys."""
+    """0 matches and signed, 1 anything else, 2 cannot tell. A transcription, decision, image, OCR, audio, video
+    or mesh fingerprint is checked by its own module, which checks every answer's receipt with the same keys."""
     started = time.time()
     try:
         fingerprint = load_fingerprint(path)

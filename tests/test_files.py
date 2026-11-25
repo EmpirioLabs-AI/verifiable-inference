@@ -23,6 +23,8 @@ FIELDS = {
     "image": COMMON | {"request", "settings", "adapters", "probes"},
     "ocr": COMMON | {"request", "pages"},
     "audio": COMMON | {"endpoint", "request", "probes"},
+    "video": COMMON | {"request", "settings", "components", "probes"},
+    "mesh": COMMON | {"request", "components", "probes"},
 }
 REQUIRED = {
     "chat-first-token": FIELDS["chat-first-token"] - {"request"},
@@ -31,6 +33,8 @@ REQUIRED = {
     "image": COMMON | {"request", "probes"},
     "ocr": COMMON | {"request", "pages"},
     "audio": COMMON | {"endpoint", "request", "probes"},
+    "video": COMMON | {"request", "probes"},
+    "mesh": COMMON | {"request", "probes"},
 }
 LIMITS = {
     "chat-first-token": {"typical_gap", "first_token"},
@@ -39,6 +43,8 @@ LIMITS = {
     "image": {"image_distance", "typical_distance", "close"},
     "ocr": {"page_cer", "typical_cer", "box_gap", "typical_box_gap", "close"},
     "audio": {"clip_distance", "typical_distance", "close"},
+    "video": {"clip_distance", "typical_distance", "close"},
+    "mesh": {"shape_distance", "typical_distance", "box_gap", "close"},
 }
 PAGE_FIELDS = {"file", "sha256", "source", "license", "processing", "width", "height", "output"}
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -47,6 +53,11 @@ AUDIO_PROBE_FIELDS = {"prompt", "lyrics", "input", "voice", "voice_model", "voic
                       "instrumental", "speed", "sample_rate", "model_quality", "volume", "temperature", "top_k",
                       "top_p", "repetition_penalty", "seconds", "signature"}
 PROBE_FIELDS = {"prompt", "seed", "width", "height", "thumbnail"}
+VIDEO_PROBE_FIELDS = {"prompt", "seed", "image", "frame_count", "width", "height", "frames", "thumbnails"}
+MESH_PROBE_FIELDS = {"image", "seed", "box", "shape", "colors", "faces"}
+PICTURE_FIELDS = {"file", "sha256", "source", "license", "processing"}
+COMPONENT_FIELDS = {"role", "weights", "revision", "file", "sha256", "scale"}
+PICTURE_SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
 CLIP_FIELDS = {"file", "sha256", "seconds", "source", "license", "cut", "processing", "language", "languages", "tokens",
                "text", "avg_logprob", "no_speech_prob"}
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -108,6 +119,14 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(0.75 <= limits["close"] <= 1, name)
             elif data["kind"] == "audio":
                 self.assertTrue(0 < limits["typical_distance"] <= limits["clip_distance"] <= 10, name)
+                self.assertTrue(0.75 <= limits["close"] <= 1, name)
+            elif data["kind"] == "video":
+                self.assertTrue(0 < limits["typical_distance"] <= limits["clip_distance"] <= 0.3, name)
+                self.assertTrue(0.75 <= limits["close"] <= 1, name)
+            elif data["kind"] == "mesh":
+                self.assertTrue(0 < limits["typical_distance"] <= limits["shape_distance"] <= 0.3, name)
+                self.assertTrue(0 < limits["box_gap"] <= 0.1, name)
+                self.assertTrue(0 < limits.get("color_distance", 0.1) <= 0.3, name)
                 self.assertTrue(0.75 <= limits["close"] <= 1, name)
             else:
                 self.assertTrue(0.8 <= limits["same_answer"] <= 1, name)
@@ -227,8 +246,74 @@ class Fingerprints(unittest.TestCase):
                 # One row of 30 bands for every started quarter second of the clip.
                 self.assertEqual(len(raw) // 30, max(1, math.ceil(probe["seconds"] * 4 - 1e-9)), (name, probe["seed"]))
 
-    def test_nothing_but_the_clips_or_pages_of_a_fingerprint_sits_beside_the_fingerprints(self):
+    def assert_pictures_recorded_exactly(self, name, data):
+        """A video or mesh file's pictures sit in the folder of its model's name, each the file it records, public
+        domain or CC0 with an https source, and the folder holds nothing else."""
+        folder = data["model"]
+        recorded = [probe["image"] for probe in data["probes"] if probe.get("image")]
+        total = 0
+        for picture in recorded:
+            self.assertLessEqual(set(picture), PICTURE_FIELDS, (name, picture.get("file")))
+            directory, base = picture["file"].split("/")
+            self.assertEqual(directory, folder, picture["file"])
+            with open(os.path.join(FINGERPRINTS, folder, base), "rb") as handle:
+                raw = handle.read()
+            total += len(raw)
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), picture["sha256"], picture["file"])
+            self.assertTrue(raw.startswith(PICTURE_SIGNATURES), picture["file"])
+            license_text = picture["license"].lower()
+            self.assertTrue("public domain" in license_text or "cc0" in license_text, picture["file"])
+            self.assertTrue(picture["source"].startswith("https://"), picture["file"])
+        self.assertLessEqual(total, 3000000, name)
+        if recorded:
+            self.assertEqual(sorted(os.listdir(os.path.join(FINGERPRINTS, folder))),
+                             sorted({picture["file"].split("/")[1] for picture in recorded}), name)
+
+    def assert_components_named_exactly(self, name, data):
+        for component in data.get("components") or []:
+            self.assertLessEqual({"role", "weights", "revision"}, set(component), name)
+            self.assertLessEqual(set(component), COMPONENT_FIELDS, name)
+            self.assertRegex(component["weights"], REPOSITORY)
+            self.assertRegex(component["revision"], HEX40)
+            if "sha256" in component:
+                self.assertRegex(component["sha256"], HEX64)
+
+    def test_each_video_file_holds_probes_each_with_whole_thumbnails_of_the_frames_it_names(self):
+        for name, data in files("video"):
+            self.assertGreaterEqual(len(data["probes"]), 4, name)
+            self.assertEqual(len({probe["seed"] for probe in data["probes"]}), len(data["probes"]), name)
+            for probe in data["probes"]:
+                self.assertLessEqual(set(probe), VIDEO_PROBE_FIELDS, name)
+                self.assertTrue(isinstance(probe["prompt"], str) and probe["prompt"], name)
+                self.assertIsInstance(probe["seed"], int)
+                self.assertIsInstance(probe["frame_count"], int)
+                self.assertEqual(probe["frames"], sorted(set(probe["frames"])), (name, probe["seed"]))
+                self.assertTrue(all(0 <= index < probe["frame_count"] for index in probe["frames"]), name)
+                self.assertEqual(len(probe["frames"]), len(probe["thumbnails"]), (name, probe["seed"]))
+                for thumbnail in probe["thumbnails"]:
+                    self.assertEqual(len(base64.b64decode(thumbnail)), 3 * 32 * 32, (name, probe["seed"]))
+            self.assert_pictures_recorded_exactly(name, data)
+            self.assert_components_named_exactly(name, data)
+
+    def test_each_mesh_file_holds_pictures_with_seeds_and_a_whole_signature_each(self):
+        for name, data in files("mesh"):
+            self.assertGreaterEqual(len(data["probes"]), 6, name)
+            for probe in data["probes"]:
+                self.assertLessEqual(set(probe), MESH_PROBE_FIELDS, name)
+                self.assertLessEqual({"image", "seed", "box", "shape"}, set(probe), name)
+                self.assertIsInstance(probe["seed"], int)
+                self.assertEqual(len(probe["box"]), 3, name)
+                self.assertTrue(all(0 <= side <= 1 for side in probe["box"]) and max(probe["box"]) == 1, name)
+                self.assertEqual(len(base64.b64decode(probe["shape"])), 16 ** 3, (name, probe["seed"]))
+                if "colors" in probe:
+                    self.assertEqual(len(base64.b64decode(probe["colors"])), 3 * 8 ** 3, (name, probe["seed"]))
+            self.assert_pictures_recorded_exactly(name, data)
+            self.assert_components_named_exactly(name, data)
+
+    def test_nothing_but_the_clips_pages_or_pictures_of_a_fingerprint_sits_beside_the_fingerprints(self):
         folders = {data["model"] for _, data in files("transcription")} | {data["model"] for _, data in files("ocr")}
+        folders |= {data["model"] for kind in ("video", "mesh") for _, data in files(kind)
+                    if any(probe.get("image") for probe in data["probes"])}
         for entry in os.listdir(FINGERPRINTS):
             if not entry.endswith(".json"):
                 self.assertIn(entry, folders, entry)
