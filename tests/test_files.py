@@ -51,7 +51,9 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 AUDIO_PROBE_FIELDS = {"prompt", "lyrics", "input", "voice", "voice_model", "voice_s1", "voice_s2", "voice_s3",
                       "voice_s4", "seed", "audio_duration", "num_inference_steps", "guidance_scale", "shift",
                       "instrumental", "speed", "sample_rate", "model_quality", "volume", "temperature", "top_k",
-                      "top_p", "repetition_penalty", "seconds", "signature"}
+                      "top_p", "repetition_penalty", "seconds", "signature", "references"}
+# A reference clip of a probe that holds several.
+AUDIO_REFERENCE_FIELDS = {"seconds", "signature"}
 PROBE_FIELDS = {"prompt", "seed", "width", "height", "thumbnail"}
 VIDEO_PROBE_FIELDS = {"prompt", "seed", "image", "frame_count", "width", "height", "frames", "thumbnails"}
 MESH_PROBE_FIELDS = {"image", "seed", "box", "shape", "colors", "faces"}
@@ -60,6 +62,8 @@ COMPONENT_FIELDS = {"role", "weights", "revision", "file", "sha256", "scale"}
 PICTURE_SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff")
 CLIP_FIELDS = {"file", "sha256", "seconds", "source", "license", "cut", "processing", "language", "languages", "tokens",
                "text", "avg_logprob", "no_speech_prob"}
+# A weight file of a public checkpoint: safetensors, or a speech or music model's PyTorch and ONNX parts.
+WEIGHT_SUFFIXES = (".safetensors", ".pt", ".pth", ".onnx")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
@@ -96,7 +100,7 @@ class Fingerprints(unittest.TestCase):
             self.assertIsInstance(data["made_with"], str)
             self.assertTrue(data["weight_files_sha256"], name)
             for file_name, digest in data["weight_files_sha256"].items():
-                self.assertTrue(file_name.endswith(".safetensors"), (name, file_name))
+                self.assertTrue(file_name.endswith(WEIGHT_SUFFIXES), (name, file_name))
                 self.assertRegex(digest, HEX64)
 
     def test_each_limit_is_stated_and_not_loose(self):
@@ -241,10 +245,18 @@ class Fingerprints(unittest.TestCase):
                 self.assertLessEqual(set(probe), AUDIO_PROBE_FIELDS, name)
                 self.assertTrue(isinstance(probe.get("prompt") or probe.get("input"), str), name)
                 self.assertIsInstance(probe["seed"], int)
-                raw = base64.b64decode(probe["signature"])
-                self.assertTrue(raw and len(raw) % 30 == 0, (name, probe["seed"]))
-                # One row of 30 bands for every started quarter second of the clip.
-                self.assertEqual(len(raw) // 30, max(1, math.ceil(probe["seconds"] * 4 - 1e-9)), (name, probe["seed"]))
+                # One signature, or several references, never both.
+                self.assertEqual(("signature" in probe) + ("references" in probe), 1, (name, probe["seed"]))
+                references = probe.get("references") or [{"seconds": probe.get("seconds"),
+                                                          "signature": probe["signature"]}]
+                self.assertTrue(isinstance(references, list) and references, (name, probe["seed"]))
+                for reference in references:
+                    self.assertLessEqual(set(reference), AUDIO_REFERENCE_FIELDS, (name, probe["seed"]))
+                    raw = base64.b64decode(reference["signature"])
+                    self.assertTrue(raw and len(raw) % 30 == 0, (name, probe["seed"]))
+                    # One row of 30 bands for every started quarter second of the clip.
+                    self.assertEqual(len(raw) // 30, max(1, math.ceil(reference["seconds"] * 4 - 1e-9)),
+                                     (name, probe["seed"]))
 
     def assert_pictures_recorded_exactly(self, name, data):
         """A video or mesh file's pictures sit in the folder of its model's name, each the file it records, public

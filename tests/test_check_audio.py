@@ -298,6 +298,44 @@ class Verdict(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual((written["result"], len(written["signatures"])), ("matches", 3))
 
+    def with_references(self, *shifts):
+        """The fixture with each probe's one signature replaced by `references`: the clip of seed + shift for each
+        shift."""
+        for row in self.fixture.fingerprint["probes"]:
+            items = []
+            for shift in shifts:
+                rate, channels = self.fixture.clip(row, seed_shift=shift)
+                items.append({"seconds": len(channels[0]) / rate,
+                              "signature": ca.encode_signature(ca.signature(*ca.decode_wav(wav(rate, channels))))})
+            del row["signature"], row["seconds"]
+            row["references"] = items
+        with open(self.fixture.path, "w", encoding="utf-8") as handle:
+            json.dump(self.fixture.fingerprint, handle)
+
+    def test_a_clip_matches_the_closest_of_a_probes_references(self):
+        self.with_references(50, 0, 60)
+        code, out = run(self.fixture, self.fixture.answer)
+        self.assertEqual(code, 0, out)
+        self.assertIn("typical distance: 0.00 dB", out)
+        for shift in (50, 60):
+            code, out = run(self.fixture, lambda probe: self.fixture.answer(probe, seed_shift=shift))
+            self.assertEqual(code, 0, out)
+
+    def test_a_clip_far_from_every_reference_does_not_match(self):
+        self.with_references(50, 0, 60)
+        code, out = run(self.fixture, lambda probe: self.fixture.answer(probe, seed_shift=100))
+        self.assertEqual(code, 1, out)
+        self.assertIn("DOES NOT MATCH", out)
+
+    def test_a_probe_of_one_reference_reads_as_one_signature(self):
+        rows = self.fixture.fingerprint["probes"]
+        single = [ca.decode_signature(row["signature"]) for row in rows]
+        self.with_references(0)
+        self.assertEqual([ca.references(row) for row in rows], [[s] for s in single])
+        live = [ca.clip_signature(self.fixture.answer(row, seed_shift=100)) for row in rows]
+        before = {**self.fixture.fingerprint, "probes": [{"signature": ca.encode_signature(s)} for s in single]}
+        self.assertEqual(ca.verdict(self.fixture.fingerprint, live)["distances"], ca.verdict(before, live)["distances"])
+
     def test_an_endpoint_the_check_does_not_ask_is_refused(self):
         self.fixture.fingerprint["endpoint"] = "/v1/audio/transcriptions"
         out = io.StringIO()

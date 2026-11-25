@@ -1,6 +1,7 @@
 """Check that a model on EmpirioLabs AI is the public model it is said to be, without running any model.
 
-Each file in fingerprints/ was made once, from the model's public weights. A chat model's file (kind
+Each file in fingerprints/ was made once, from the model's public weights (a few speech and music files were recorded
+from the model EmpirioLabs serves: their `made_with` says so). A chat model's file (kind
 "chat-first-token") holds, for a fixed list of questions, the 20 tokens the model finds most likely to begin its
 answer, with their log-probabilities. This script asks the live API the same questions for one token each, with
 `logprobs` on, and compares. It also checks the signed receipt on every answer (check_receipt.py), so the verdict

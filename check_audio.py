@@ -9,7 +9,9 @@ numbers from torch's CPU generator, which draws the same numbers on every comput
 request gives the same clip wherever the public weights run, up to the small rounding differences between cards. The
 check asks the live API for the same clips as WAV, computes the same signature in pure Python and compares the two: the
 mean absolute difference of their dB values. A clip from another model, or from the same model with another seed, is
-far from it.
+far from it. A probe may hold several reference clips of the model (`references`): a live clip is then compared with the
+closest of them. A file whose `made_with` is "the model as served" holds clips recorded from the model EmpirioLabs
+serves: its check confirms that the model is still the one that was recorded, and `make` doesn't rebuild it.
 
     python check_model.py --model ace-step-1-5-xl                the usual way, as for every other model
     python check_audio.py check --model ace-step-1-5-xl          the same check, --out keeps the numbers read
@@ -355,9 +357,16 @@ def ask(model, probe, request, endpoint, key, exchanges=None, send=None, downloa
     return clip
 
 
+def references(row):
+    """The reference signatures of one probe, decoded: its `signature`, or each signature in its `references`."""
+    if "references" in row:
+        return [decode_signature(item["signature"]) for item in row["references"]]
+    return [decode_signature(row["signature"])]
+
+
 def verdict(fingerprint, live_signatures):
     limits = fingerprint["limits"]
-    distances = [distance(decode_signature(row["signature"]), live)
+    distances = [min(distance(reference, live) for reference in references(row))
                  for row, live in zip(fingerprint["probes"], live_signatures)]
     close = sum(1 for d in distances if d <= limits["clip_distance"])
     typical = statistics.median(distances)
