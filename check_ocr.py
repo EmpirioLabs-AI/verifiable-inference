@@ -1,17 +1,19 @@
 """Check that a document OCR model on EmpirioLabs AI is the public model it is said to be, without running any model.
 
 A fingerprint of kind "ocr" (fingerprints/<model>.json) was made once, from the model's public weights: for a fixed set
-of short public-domain document pages kept beside it (fingerprints/<model>/), the text the public model writes in its
-model card's grounding mode, greedy, with each block of the page labelled and boxed (coordinates 0 to 1000). The
-check sends each page once to POST /v1/ocr and compares the answer's blocks with the fingerprint's: the text (its
-character error rate after whitespace is normalized), the blocks' kinds in reading order, and their boxes. Another
-model reads, splits or places the same page differently.
+of document pages kept beside it (fingerprints/<model>/), the text the public model writes in its model card's
+grounding mode, greedy, with each block of the page labelled and boxed (coordinates 0 to 1000). The check sends each
+page once to POST /v1/ocr and compares the answer's blocks with the fingerprint's: the text (its character error rate
+after whitespace is normalized), the blocks' kinds in reading order, and their boxes. Another model reads, splits or
+places the same page differently. The pages of this repository's fingerprints were written for it (CC0 1.0) and
+rendered by scripts/document_pages.py, so no model has read them before.
 
     python check_model.py --model lightonocr-3-4b                the usual way, as for every other model
     python check_ocr.py check --model lightonocr-3-4b            the same check, --out keeps the numbers read
     python check_ocr.py make --weights <folder> --name lightonai/LightOnOCR-3-4B --revision <commit> \
         --model lightonocr-3-4b --pages fingerprints/lightonocr-3-4b --sources <pages.json> \
-        --out fingerprints/lightonocr-3-4b.json --page-cer <limit> --typical-cer <limit> --box-gap <limit> --close <share>
+        --out fingerprints/lightonocr-3-4b.json --page-cer <limit> --typical-cer <limit> --box-gap <limit> \
+        --typical-box-gap <limit> --close <share>
 
 The check uses only the Python standard library and reads your API key from EMPIRIOLABS_API_KEY. It sends one page
 per request, billed to your account at the model's listed price. The pages are read from the folder beside the
@@ -22,7 +24,8 @@ the checkpoint's own processor and chat template, thinking off) and needs torch,
 Verdict
     matches          on at least the share of pages the fingerprint states: a character error rate within the page
                      limit, the same kinds of blocks in the same order, and boxes within the box limit; and the
-                     typical (median) character error rate and box gap within their limits
+                     typical (median) character error rate and box gap within their limits (the typical box gap's
+                     own limit, typical_box_gap, when the fingerprint states one, else the box limit)
     DOES NOT MATCH   anything else
     signed           every answer carries a valid receipt from EmpirioLabs that names this model (check_receipt.py);
                      a page answered as a job carries it on the job's result, for the request that made it
@@ -194,6 +197,11 @@ def compare(reference_blocks, live):
     return cer, same_layout, gap
 
 
+def typical_gap_limit(limits):
+    """The limit of the typical (median) box gap: the fingerprint's typical_box_gap, else its per-page box limit."""
+    return limits.get("typical_box_gap", limits["box_gap"])
+
+
 def verdict(fingerprint, live_pages):
     """live_pages: one answer_blocks() per page, in the fingerprint's order."""
     limits = fingerprint["limits"]
@@ -203,7 +211,7 @@ def verdict(fingerprint, live_pages):
     typical_cer = statistics.median(r[0] for r in results)
     typical_gap = statistics.median(r[2] for r in results)
     ok = (close / len(results) >= limits["close"] and typical_cer <= limits["typical_cer"]
-          and typical_gap <= limits["box_gap"])
+          and typical_gap <= typical_gap_limit(limits))
     return {"result": "matches" if ok else "DOES NOT MATCH", "pages": len(results), "close": close,
             "typical_cer": typical_cer, "typical_box_gap": typical_gap, "per_page": results}
 
@@ -312,7 +320,7 @@ def report(model, fingerprint, v, seconds):
     print("  pages read the same (error rate within %.3f, the same blocks, boxes within %.1f): %d of %d (needs %d)" % (
         limits["page_cer"], limits["box_gap"], v["close"], v["pages"], int(limits["close"] * v["pages"] + 0.999)))
     print("  typical character error rate: %.4f (limit %.3f)" % (v["typical_cer"], limits["typical_cer"]))
-    print("  typical box gap: %.2f (limit %.1f, of 1000)" % (v["typical_box_gap"], limits["box_gap"]))
+    print("  typical box gap: %.2f (limit %.2f, of 1000)" % (v["typical_box_gap"], typical_gap_limit(limits)))
     signed = check_receipt.report_receipts(model, v.get("receipts"))
     print("  %.0f s, no model was run" % seconds)
     return signed
@@ -422,6 +430,8 @@ def make(args):
                    "made_with": "plain transformers code on %s" % args.device.split(":")[0],
                    "made_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "request": REQUEST,
                    "limits": {"page_cer": args.page_cer, "typical_cer": args.typical_cer, "box_gap": args.box_gap,
+                              **({"typical_box_gap": args.typical_box_gap} if args.typical_box_gap is not None
+                                 else {}),
                               "close": args.close},
                    "pages": rows}
     with open(args.out, "w", encoding="utf-8", newline="\n") as handle:
@@ -450,12 +460,14 @@ def main(argv=None):
     m.add_argument("--out", required=True)
     m.add_argument("--dtype", default="float32", choices=("float32", "bfloat16", "float16"))
     m.add_argument("--device", default="cpu", help="cpu or cuda")
-    m.add_argument("--max-new-tokens", type=int, default=4096)
+    m.add_argument("--max-new-tokens", type=int, default=12000, help="enough for a dense page (default 12000)")
     m.add_argument("--temperature", type=float, default=0.0, help="0 (the default) decodes greedily")
     m.add_argument("--seed", type=int, default=0, help="the sampling seed, with a temperature above 0")
     m.add_argument("--page-cer", type=float, required=True)
     m.add_argument("--typical-cer", type=float, required=True)
     m.add_argument("--box-gap", type=float, required=True)
+    m.add_argument("--typical-box-gap", type=float, default=None,
+                   help="the typical (median) box gap's own limit (default: the --box-gap limit)")
     m.add_argument("--close", type=float, required=True)
     args = parser.parse_args(argv)
     if args.command == "make":

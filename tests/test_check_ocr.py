@@ -202,6 +202,18 @@ class Verdict(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("DOES NOT MATCH", out)
 
+    def test_a_typical_box_gap_limit_of_its_own_is_kept_when_the_file_states_one(self):
+        # Boxes two units off are within the per-page box limit (4) but their typical gap is not within 1.
+        self.fixture.fingerprint["limits"]["typical_box_gap"] = 1.0
+        with open(self.fixture.path, "w", encoding="utf-8") as handle:
+            json.dump(self.fixture.fingerprint, handle)
+        code, out = run(self.fixture, lambda page: self.fixture.answer(page, shift=2))
+        self.assertEqual(code, 1, out)
+        self.assertIn("DOES NOT MATCH", out)
+        self.assertIn("(limit 1.00, of 1000)", out)
+        code, out = run(self.fixture, self.fixture.answer)
+        self.assertEqual(code, 0, out)
+
     def test_another_reading_of_the_text_does_not_match(self):
         code, out = run(self.fixture, lambda page: self.fixture.answer(page, text=lambda t: t.replace("e", "c")))
         self.assertEqual(code, 1, out)

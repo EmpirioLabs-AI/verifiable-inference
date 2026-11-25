@@ -37,7 +37,7 @@ LIMITS = {
     "transcription": {"same_transcript", "language_gap", "logprob_gap"},
     "decision": {"same_answer", "typical_gap"},
     "image": {"image_distance", "typical_distance", "close"},
-    "ocr": {"page_cer", "typical_cer", "box_gap", "close"},
+    "ocr": {"page_cer", "typical_cer", "box_gap", "typical_box_gap", "close"},
     "audio": {"clip_distance", "typical_distance", "close"},
 }
 PAGE_FIELDS = {"file", "sha256", "source", "license", "processing", "width", "height", "output"}
@@ -104,7 +104,7 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(0.75 <= limits["close"] <= 1, name)
             elif data["kind"] == "ocr":
                 self.assertTrue(0 < limits["typical_cer"] <= limits["page_cer"] <= 0.1, name)
-                self.assertTrue(0 < limits["box_gap"] <= 15, name)
+                self.assertTrue(0 < limits["typical_box_gap"] <= limits["box_gap"] <= 15, name)
                 self.assertTrue(0.75 <= limits["close"] <= 1, name)
             elif data["kind"] == "audio":
                 self.assertTrue(0 < limits["typical_distance"] <= limits["clip_distance"] <= 10, name)
