@@ -4,6 +4,7 @@ the README lists every fingerprint. Run with: python -m unittest discover -s tes
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -20,19 +21,31 @@ FIELDS = {
     "transcription": COMMON | {"request", "clips"},
     "decision": COMMON | {"requests"},
     "image": COMMON | {"request", "settings", "adapters", "probes"},
+    "ocr": COMMON | {"request", "pages"},
+    "audio": COMMON | {"endpoint", "request", "probes"},
 }
 REQUIRED = {
     "chat-first-token": FIELDS["chat-first-token"] - {"request"},
     "transcription": FIELDS["transcription"],
     "decision": FIELDS["decision"],
     "image": COMMON | {"request", "probes"},
+    "ocr": COMMON | {"request", "pages"},
+    "audio": COMMON | {"endpoint", "request", "probes"},
 }
 LIMITS = {
     "chat-first-token": {"typical_gap", "first_token"},
     "transcription": {"same_transcript", "language_gap", "logprob_gap"},
     "decision": {"same_answer", "typical_gap"},
     "image": {"image_distance", "typical_distance", "close"},
+    "ocr": {"page_cer", "typical_cer", "box_gap", "close"},
+    "audio": {"clip_distance", "typical_distance", "close"},
 }
+PAGE_FIELDS = {"file", "sha256", "source", "license", "processing", "width", "height", "output"}
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+AUDIO_PROBE_FIELDS = {"prompt", "lyrics", "input", "voice", "voice_model", "voice_s1", "voice_s2", "voice_s3",
+                      "voice_s4", "seed", "audio_duration", "num_inference_steps", "guidance_scale", "shift",
+                      "instrumental", "speed", "sample_rate", "model_quality", "volume", "temperature", "top_k",
+                      "top_p", "repetition_penalty", "seconds", "signature"}
 PROBE_FIELDS = {"prompt", "seed", "width", "height", "thumbnail"}
 CLIP_FIELDS = {"file", "sha256", "seconds", "source", "license", "cut", "processing", "language", "languages", "tokens",
                "text", "avg_logprob", "no_speech_prob"}
@@ -88,6 +101,13 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(0 < limits["logprob_gap"] <= 0.05, name)
             elif data["kind"] == "image":
                 self.assertTrue(0 < limits["typical_distance"] <= 0.15 and limits["typical_distance"] <= limits["image_distance"] <= 0.25, name)
+                self.assertTrue(0.75 <= limits["close"] <= 1, name)
+            elif data["kind"] == "ocr":
+                self.assertTrue(0 < limits["typical_cer"] <= limits["page_cer"] <= 0.1, name)
+                self.assertTrue(0 < limits["box_gap"] <= 15, name)
+                self.assertTrue(0.75 <= limits["close"] <= 1, name)
+            elif data["kind"] == "audio":
+                self.assertTrue(0 < limits["typical_distance"] <= limits["clip_distance"] <= 10, name)
                 self.assertTrue(0.75 <= limits["close"] <= 1, name)
             else:
                 self.assertTrue(0.8 <= limits["same_answer"] <= 1, name)
@@ -168,8 +188,47 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(adapter["file"].endswith(".safetensors"), name)
                 self.assertRegex(adapter["sha256"], HEX64)
 
-    def test_nothing_but_the_clips_of_a_transcription_file_sits_beside_the_fingerprints(self):
-        folders = {data["model"] for _, data in files("transcription")}
+    def test_each_ocr_file_holds_public_domain_pages_it_records_exactly(self):
+        for name, data in files("ocr"):
+            folder = data["model"]
+            self.assertGreaterEqual(len(data["pages"]), 6, name)
+            total = 0
+            for page in data["pages"]:
+                self.assertEqual(set(page), PAGE_FIELDS, (name, page.get("file")))
+                directory, base = page["file"].split("/")
+                self.assertEqual(directory, folder, page["file"])
+                with open(os.path.join(FINGERPRINTS, folder, base), "rb") as handle:
+                    raw = handle.read()
+                total += len(raw)
+                self.assertEqual(hashlib.sha256(raw).hexdigest(), page["sha256"], page["file"])
+                self.assertEqual(raw[:8], PNG_SIGNATURE, page["file"])
+                self.assertLessEqual(max(page["width"], page["height"]), 2048, page["file"])
+                license_text = page["license"].lower()
+                self.assertTrue("public domain" in license_text or "cc0" in license_text, page["file"])
+                self.assertTrue(page["source"].startswith("https://"), page["file"])
+                self.assertTrue(isinstance(page["output"], str) and page["output"].strip(), page["file"])
+            self.assertLessEqual(total, 1500000, name)
+            # The folder holds the recorded pages and nothing else.
+            self.assertEqual(sorted(os.listdir(os.path.join(FINGERPRINTS, folder))),
+                             sorted(page["file"].split("/")[1] for page in data["pages"]), name)
+
+    def test_each_audio_file_holds_probes_each_with_a_whole_signature(self):
+        for name, data in files("audio"):
+            self.assertIn(data["endpoint"], ("/v1/audio/generations", "/v1/audio/speech"), name)
+            self.assertIn("wav", (data["request"].get("format"), data["request"].get("output_format")), name)
+            self.assertGreaterEqual(len(data["probes"]), 6, name)
+            self.assertEqual(len({probe["seed"] for probe in data["probes"]}), len(data["probes"]), name)
+            for probe in data["probes"]:
+                self.assertLessEqual(set(probe), AUDIO_PROBE_FIELDS, name)
+                self.assertTrue(isinstance(probe.get("prompt") or probe.get("input"), str), name)
+                self.assertIsInstance(probe["seed"], int)
+                raw = base64.b64decode(probe["signature"])
+                self.assertTrue(raw and len(raw) % 30 == 0, (name, probe["seed"]))
+                # One row of 30 bands for every started quarter second of the clip.
+                self.assertEqual(len(raw) // 30, max(1, math.ceil(probe["seconds"] * 4 - 1e-9)), (name, probe["seed"]))
+
+    def test_nothing_but_the_clips_or_pages_of_a_fingerprint_sits_beside_the_fingerprints(self):
+        folders = {data["model"] for _, data in files("transcription")} | {data["model"] for _, data in files("ocr")}
         for entry in os.listdir(FINGERPRINTS):
             if not entry.endswith(".json"):
                 self.assertIn(entry, folders, entry)

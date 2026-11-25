@@ -16,7 +16,8 @@ README = os.path.join(ROOT, "README.md")
 FINGERPRINTS = os.path.join(ROOT, "fingerprints")
 START = "<!-- fingerprints:start -->"
 END = "<!-- fingerprints:end -->"
-KINDS = {"chat-first-token": "Chat", "transcription": "Transcription", "decision": "Decision", "image": "Image"}
+KINDS = {"chat-first-token": "Chat", "transcription": "Transcription", "decision": "Decision", "image": "Image",
+         "ocr": "OCR", "audio": "Audio"}
 
 
 def table():

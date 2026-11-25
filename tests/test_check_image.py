@@ -262,6 +262,8 @@ class Wiring(unittest.TestCase):
             one.assert_called_once()
 
     def test_the_check_needs_only_the_standard_library(self):
+        if getattr(sys, "stdlib_module_names", None) is None:
+            self.skipTest("Python 3.10 or later lists the standard library")
         with open(os.path.join(ROOT, "check_image.py"), encoding="utf-8") as handle:
             tree = ast.parse(handle.read())
         top = set()

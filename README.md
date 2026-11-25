@@ -30,7 +30,7 @@ Two checks, each a single Python file that needs nothing beyond Python itself:
 2. Check a model: `python check_model.py --model qwen3-5-9b`, or every model with a fingerprint: `python check_model.py --all`.
 3. Check a response: `python check_receipt.py live --model qwen3-5-9b` sends a request streamed and not streamed and checks both receipts (for an image model it makes one image and checks its file too). To check a response you kept, `python check_receipt.py files --request request.json --response response.bin`, adding `--header` for an answer that carries its receipt in the `X-Receipt` header and `--output` for files you downloaded.
 
-Python 3.9 or later. A model check sends 50 requests of one output token each (200 for a model whose API returns no list of alternatives), billed to your account at the model's listed price (https://empiriolabs.ai/pricing). A transcription or decision check sends each clip or request in its file once, and an image check asks for each picture in its file once, billed the same way.
+Python 3.9 or later. A model check sends 50 requests of one output token each (200 for a model whose API returns no list of alternatives), billed to your account at the model's listed price (https://empiriolabs.ai/pricing). A transcription or decision check sends each clip or request in its file once, an image check asks for each picture in its file once, an OCR check sends each page in its file once, and an audio check asks for each clip in its file once, billed the same way.
 
 `check_model.py` prints one verdict per model:
 
@@ -43,6 +43,7 @@ Python 3.9 or later. A model check sends 50 requests of one output token each (2
 <!-- fingerprints:start -->
 | Model ID | Kind | Public weights | Revision | Made |
 | --- | --- | --- | --- | --- |
+| [`ace-step-1-5-xl`](fingerprints/ace-step-1-5-xl.json) | Audio | [ACE-Step/acestep-v15-xl-turbo-diffusers](https://huggingface.co/ACE-Step/acestep-v15-xl-turbo-diffusers/tree/200ba991ae448051e14b0183157e35c2d27c9fb0) | `200ba991ae44` | 2026-11-25 |
 | [`aplomb-1`](fingerprints/aplomb-1.json) | Decision | [empiriolabsai/aplomb-1](https://huggingface.co/empiriolabsai/aplomb-1/tree/1225d382f51a29d04c888cdadc8b94f21261c7b2) | `1225d382f51a` | 2026-11-24 |
 | [`flux-2-klein-4b`](fingerprints/flux-2-klein-4b.json) | Image | [black-forest-labs/FLUX.2-klein-4B](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/tree/e7b7dc27f91deacad38e78976d1f2b499d76a294) | `e7b7dc27f91d` | 2026-11-25 |
 | [`gemma-4-26b-a4b`](fingerprints/gemma-4-26b-a4b.json) | Chat | [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it/tree/4d7ae4984b7db7de8f8457170b3f1a419ee76d52) | `4d7ae4984b7d` | 2026-11-23 |
@@ -52,6 +53,7 @@ Python 3.9 or later. A model check sends 50 requests of one output token each (2
 | [`qwen3-5-9b`](fingerprints/qwen3-5-9b.json) | Chat | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B/tree/c202236235762e1c871ad0ccb60c8ee5ba337b9a) | `c20223623576` | 2026-11-23 |
 | [`qwen3-6-35b-a3b`](fingerprints/qwen3-6-35b-a3b.json) | Chat | [EschaLabs/Qwen3.6-35B-A3B-Escha-W2](https://huggingface.co/EschaLabs/Qwen3.6-35B-A3B-Escha-W2/tree/6072a54913552616b64599c30f5e8a3c8fecad9c) | `6072a5491355` | 2026-11-24 |
 | [`qwen3-8-27b`](fingerprints/qwen3-8-27b.json) | Chat | [Inferact/Qwen3.8-27B-NVFP4](https://huggingface.co/Inferact/Qwen3.8-27B-NVFP4/tree/6128240ebaf4eaa7bad2b3d1c72c37d677c5f462) | `6128240ebaf4` | 2026-11-23 |
+| [`stable-audio-3-medium`](fingerprints/stable-audio-3-medium.json) | Audio | [stabilityai/stable-audio-3-medium](https://huggingface.co/stabilityai/stable-audio-3-medium/tree/d4d3579395a8ac0df4ab13b5b1d7138ce7290f81) | `d4d3579395a8` | 2026-11-25 |
 | [`whisper-large-v3-turbo`](fingerprints/whisper-large-v3-turbo.json) | Transcription | [openai/whisper-large-v3-turbo](https://huggingface.co/openai/whisper-large-v3-turbo/tree/41f01f3fe87f28c78e2fbf8b568835947dd65ed9) | `41f01f3fe87f` | 2026-11-24 |
 <!-- fingerprints:end -->
 
@@ -62,6 +64,10 @@ Each file names the public repository, the exact revision and the SHA-256 of eve
 **Decision.** A decision file holds fixed decision requests and the probabilities the public weights, run with the reference code published with them, give for every question. The check sends each request to `POST /v1/decisions` and says `matches` when the same answer comes back on the share of questions the file states and the typical largest difference between the probabilities is within its limit. `check_decision.py make` makes the file again from the same public weights.
 
 **Image.** An image file holds a list of prompts, each with its own seed, and a 32 × 32 thumbnail of the picture the public weights draw for it with the settings the file states. The seed fixes the starting noise, so the same request gives the same picture on any computer, up to small rounding differences between graphics cards. The check asks `POST /v1/images/generations` for the same pictures as PNG and says `matches` when the share of pictures the file states are within its distance of their thumbnails and the typical distance is within its limit. The distance is one minus the correlation of the two thumbnails' colors, so a picture that is only a little lighter or darker still counts as the same picture. A picture from another model, or from the same model with another seed, is laid out differently and is far from it. `check_image.py make` makes the file again from the same public weights and takes any prompts and seeds you choose, so you can make a fingerprint of your own that we have never seen and check the API with it. `check_image.py replay` draws a picture you received again from the public weights and tells you whether it's the same picture.
+
+**OCR.** An OCR file holds short public-domain document pages, kept as PNG in the folder of the same name beside it with each page's source and license, and for each page the text the public weights write in their model card's grounding mode, decoded greedily: every block of the page with its kind and its box. The check sends each page to `POST /v1/ocr` and says `matches` when, on the share of pages the file states, the character error rate of the text (with whitespace normalized) is within the file's page limit, the blocks are of the same kinds in the same order and their boxes are within its box limit, and the typical error rate and box gap are within their limits. `check_ocr.py make` makes the file again from the same public weights.
+
+**Audio.** An audio file holds a list of probes (a prompt and a seed, with lyrics for a model that sings, or a text and a voice for speech) and a compact signature of the clip the public weights make for each: the energy of 30 frequency bands in every quarter second. The seed's noise is drawn as float32 numbers on the CPU, so the same request gives the same clip on any computer, up to small rounding differences between graphics cards. The check asks for the same clips as WAV, computes the same signature with nothing but Python, and says `matches` when the share of clips the file states are within its distance (the mean difference in dB) and the typical distance is within its limit. `check_audio.py make` makes the file again from the same public weights and takes any prompts and seeds you choose, and `check_audio.py signature` prints the signature of a clip you have.
 
 ## Receipts
 
@@ -86,7 +92,7 @@ To check a receipt you need the request body exactly as you sent it and the resp
 - Receipts cover every Native Inference model. Third-party models don't carry one.
 - Text-to-video requests to `moss-video-and-audio` and `svi-2-0-pro` don't carry a receipt; send a starting image to get one. Streams from the Gemini endpoint `streamGenerateContent` don't either; use `generateContent` when you need one.
 - Fingerprints cover the models in the table above. Every model check also checks the receipt on every answer.
-- A model check confirms the model at the time it runs. The questions are fixed and public, so the receipt on every response is what ties each answer to a model and to EmpirioLabs. For image models you can also choose your own prompts and seeds, so a check can use requests we have never seen.
+- A model check confirms the model at the time it runs. The questions are fixed and public, so the receipt on every response is what ties each answer to a model and to EmpirioLabs. For image and audio models you can also choose your own prompts and seeds, so a check can use requests we have never seen.
 - A fingerprint confirms the model, not the numeric precision it runs at.
 - A receipt shows what EmpirioLabs returned for a request. It doesn't encrypt anything, and it doesn't show whether an answer is correct.
 

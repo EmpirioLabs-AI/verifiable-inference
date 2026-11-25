@@ -186,6 +186,8 @@ class Asking(unittest.TestCase):
                 mock.patch.object(cm.check_transcription, "check_one", other("transcription")), \
                 mock.patch.object(cm.check_decision, "check_one", other("decision")), \
                 mock.patch.object(cm.check_image, "check_one", other("image")), \
+                mock.patch.object(cm.check_ocr, "check_one", other("ocr")), \
+                mock.patch.object(cm.check_audio, "check_one", other("audio")), \
                 mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "not-a-key"}), contextlib.redirect_stdout(io.StringIO()):
             code = cm.main(["--all", "--keys", "none"])
         self.assertEqual(code, 0)
