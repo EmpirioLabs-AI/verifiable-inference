@@ -19,17 +19,21 @@ FIELDS = {
     "chat-first-token": COMMON | {"system", "rows", "request"},
     "transcription": COMMON | {"request", "clips"},
     "decision": COMMON | {"requests"},
+    "image": COMMON | {"request", "settings", "adapters", "probes"},
 }
 REQUIRED = {
     "chat-first-token": FIELDS["chat-first-token"] - {"request"},
     "transcription": FIELDS["transcription"],
     "decision": FIELDS["decision"],
+    "image": COMMON | {"request", "probes"},
 }
 LIMITS = {
     "chat-first-token": {"typical_gap", "first_token"},
     "transcription": {"same_transcript", "language_gap", "logprob_gap"},
     "decision": {"same_answer", "typical_gap"},
+    "image": {"image_distance", "typical_distance", "close"},
 }
+PROBE_FIELDS = {"prompt", "seed", "width", "height", "thumbnail"}
 CLIP_FIELDS = {"file", "sha256", "seconds", "source", "license", "cut", "processing", "language", "languages", "tokens",
                "text", "avg_logprob", "no_speech_prob"}
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
@@ -82,6 +86,9 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(0.8 <= limits["same_transcript"] <= 1, name)
                 self.assertTrue(0 < limits["language_gap"] <= 0.2, name)
                 self.assertTrue(0 < limits["logprob_gap"] <= 0.05, name)
+            elif data["kind"] == "image":
+                self.assertTrue(0 < limits["typical_distance"] <= 0.15 and limits["typical_distance"] <= limits["image_distance"] <= 0.25, name)
+                self.assertTrue(0.75 <= limits["close"] <= 1, name)
             else:
                 self.assertTrue(0.8 <= limits["same_answer"] <= 1, name)
                 self.assertTrue(0 < limits["typical_gap"] <= 0.05, name)
@@ -142,6 +149,24 @@ class Fingerprints(unittest.TestCase):
                 self.assertTrue(request["questions"], name)
                 self.assertEqual(set(request["answers"]), set(request["questions"]), name)
             self.assertGreaterEqual(sum(len(r["answers"]) for r in data["requests"]), 40, name)
+
+    def test_each_image_file_holds_eight_or_more_probes_each_with_a_whole_thumbnail(self):
+        for name, data in files("image"):
+            self.assertGreaterEqual(len(data["probes"]), 8, name)
+            self.assertEqual(len({probe["seed"] for probe in data["probes"]}), len(data["probes"]), name)
+            for probe in data["probes"]:
+                self.assertLessEqual(set(probe), PROBE_FIELDS, name)
+                self.assertTrue(isinstance(probe["prompt"], str) and probe["prompt"], name)
+                self.assertIsInstance(probe["seed"], int)
+                raw = base64.b64decode(probe["thumbnail"])
+                self.assertEqual(len(raw), 3 * 32 * 32, (name, probe["seed"]))
+            self.assertEqual(data["request"].get("format"), "png", name)
+            for adapter in data.get("adapters") or []:
+                self.assertEqual(set(adapter), {"weights", "revision", "file", "sha256", "scale"}, name)
+                self.assertRegex(adapter["weights"], REPOSITORY)
+                self.assertRegex(adapter["revision"], HEX40)
+                self.assertTrue(adapter["file"].endswith(".safetensors"), name)
+                self.assertRegex(adapter["sha256"], HEX64)
 
     def test_nothing_but_the_clips_of_a_transcription_file_sits_beside_the_fingerprints(self):
         folders = {data["model"] for _, data in files("transcription")}

@@ -185,11 +185,12 @@ class Asking(unittest.TestCase):
         with mock.patch.object(cm, "run_check", chat), \
                 mock.patch.object(cm.check_transcription, "check_one", other("transcription")), \
                 mock.patch.object(cm.check_decision, "check_one", other("decision")), \
+                mock.patch.object(cm.check_image, "check_one", other("image")), \
                 mock.patch.dict(os.environ, {"EMPIRIOLABS_API_KEY": "not-a-key"}), contextlib.redirect_stdout(io.StringIO()):
             code = cm.main(["--all", "--keys", "none"])
         self.assertEqual(code, 0)
         self.assertEqual(seen, [(name[:-len(".json")], load(name).get("kind", "chat-first-token")) for name in ALL])
-        self.assertTrue({"chat-first-token", "transcription", "decision"} <= {kind for _, kind in seen})
+        self.assertTrue({"chat-first-token", "transcription", "decision", "image"} <= {kind for _, kind in seen})
 
     def test_the_request_is_the_documented_one_and_a_file_can_add_settings(self):
         body = cm.request_body("m", {"system": "s", "request": {"reasoning_effort": "low"}}, "q")

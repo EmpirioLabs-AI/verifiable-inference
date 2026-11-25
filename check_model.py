@@ -6,8 +6,9 @@ answer, with their log-probabilities. This script asks the live API the same que
 `logprobs` on, and compares. It also checks the signed receipt on every answer (check_receipt.py), so the verdict
 covers both what answered and who served it.
 
-A file's `kind` says which check reads it: "transcription" files are checked by check_transcription.py and "decision"
-files by check_decision.py, each with the same verdict line and the same receipt check on every answer.
+A file's `kind` says which check reads it: "transcription" files are checked by check_transcription.py, "decision"
+files by check_decision.py and "image" files by check_image.py, each with the same verdict line and the same receipt
+check on every answer.
 
     python check_model.py --model qwen3-5-9b          one model (fingerprints/qwen3-5-9b.json)
     python check_model.py --all                       every model that has a fingerprint
@@ -35,13 +36,15 @@ import time
 import urllib.error
 
 import check_decision
+import check_image
 import check_receipt
 import check_transcription
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FINGERPRINTS = os.path.join(HERE, "fingerprints")
 # The check of every kind but chat, by the file's `kind`.
-OTHER_KINDS = {check_transcription.KIND: check_transcription, check_decision.KIND: check_decision}
+OTHER_KINDS = {check_transcription.KIND: check_transcription, check_decision.KIND: check_decision,
+               check_image.KIND: check_image}
 KINDS = ("chat-first-token",) + tuple(OTHER_KINDS)
 TOP = 20
 PROMPT_SLACK = 3  # a chat template may render a prompt a token or two longer or shorter, the same on every question
@@ -217,8 +220,8 @@ def report(model, fingerprint, verdict, receipts, keys, sampled, seconds):
 
 
 def check_one(model, path, key, keys):
-    """0 matches and signed, 1 anything else, 2 cannot tell. A transcription or a decision fingerprint is checked by
-    its own module, which checks every answer's receipt with the same keys."""
+    """0 matches and signed, 1 anything else, 2 cannot tell. A transcription, decision or image fingerprint is checked
+    by its own module, which checks every answer's receipt with the same keys."""
     started = time.time()
     try:
         fingerprint = load_fingerprint(path)
