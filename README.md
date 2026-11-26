@@ -101,9 +101,15 @@ A receipt is a JSON object signed with Ed25519:
 
 To check a receipt you need the request body exactly as you sent it and the response exactly as you received it.
 
-## Our daily results, signed
+## Prompt privacy
 
-EmpirioLabs publishes the latest results of its own checks of every Native Inference model at https://api.empiriolabs.ai/v1/verification (no API key needed), signed with the same key as every receipt. For each model: the result of its last check against its fingerprint (`matches`, `does not match`, or `not checked` when the last check gave no confirmed result), the date, whether every answer of that check was signed, and whether the model is checked daily or on request. For the privacy test: the models it covers, whether it is running, and how many of its test links have ever been opened.
+Every day, EmpirioLabs sends test requests to its Native Inference chat and decision models. Each one carries details only we know, so if anyone who handles a request used them, we'd see it. The result is in the signed results below.
+
+You can run the same test yourself. Put a canary token, a link or key that alerts only you when it's used, in a request to a Native Inference chat, image, speech or decision model with web search off. If it's ever opened, you'll see it.
+
+## Signed results
+
+EmpirioLabs publishes the latest results of its own checks of every Native Inference model at https://api.empiriolabs.ai/v1/verification (no API key needed), signed with the same key as every receipt. For each model: the result of its last check against its fingerprint (`matches`, `does not match`, or `not checked` when the last check gave no confirmed result), the date, whether every answer of that check was signed, and whether the model is checked daily or on request. Chat models are also checked every day with questions that are not published. For the privacy test: the models it covers, whether it is running, and how many of its test links have ever been opened.
 
 `python check_receipt.py statement` fetches the results and checks the signature; `--file statement.json` checks results you saved. The signature covers the statement without `signature`, written as JSON with sorted keys and no spaces, as for a receipt.
 
@@ -117,7 +123,8 @@ EmpirioLabs publishes the latest results of its own checks of every Native Infer
 - The fingerprints of `glm-tts`, `minimax-music-3` and `soulx-podcast` were recorded from the models we serve, so their checks confirm that the model hasn't changed since.
 - A fingerprint confirms the model, not the numeric precision it runs at.
 - A receipt shows what EmpirioLabs returned for a request. It doesn't encrypt anything, and it doesn't show whether an answer is correct.
-- The daily results are EmpirioLabs' signed statement of its own checks. The model checks above let you confirm them yourself.
+- A privacy test shows whether something in a request was used. It can't show that nothing was stored.
+- The signed results are EmpirioLabs' statement of its own checks. The model checks above let you confirm them yourself.
 
 ## Report a problem
 
