@@ -9,7 +9,7 @@ can show later what was asked, what was answered, and that EmpirioLabs served it
     python check_receipt.py live  --model qwen3-5-9b       a chat model: one request, not streamed and streamed
     python check_receipt.py live  --model flux-2-klein-4b  an image model: one image, its file checked too
     python check_receipt.py files --request request.json --response response.bin [--header ...] [--output FILE ...]
-    python check_receipt.py statement [--file statement.json]  EmpirioLabs' signed results of its own daily checks
+    python check_receipt.py statement [--file statement.json]  EmpirioLabs' signed results of its own checks
 
 Python 3.9 or later, standard library only. `live` reads your API key from EMPIRIOLABS_API_KEY.
 
@@ -486,7 +486,7 @@ def main(argv=None):
     two.add_argument("--header", help="the answer's X-Receipt header, or @file holding it (audio, text, subtitles)")
     two.add_argument("--output", nargs="+", help="generated files you downloaded, checked against the answer's sha256")
     two.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
-    three = sub.add_parser("statement", help="check EmpirioLabs' signed results of its own daily checks")
+    three = sub.add_parser("statement", help="check EmpirioLabs' signed results of its own checks")
     three.add_argument("--file", help="a statement you saved from /v1/verification (default: fetch it now)")
     three.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
     three.add_argument("--max-age", type=float, metavar="HOURS",
