@@ -9,6 +9,7 @@ can show later what was asked, what was answered, and that EmpirioLabs served it
     python check_receipt.py live  --model qwen3-5-9b       a chat model: one request, not streamed and streamed
     python check_receipt.py live  --model flux-2-klein-4b  an image model: one image, its file checked too
     python check_receipt.py files --request request.json --response response.bin [--header ...] [--output FILE ...]
+    python check_receipt.py statement [--file statement.json]  EmpirioLabs' signed results of its own daily checks
 
 Python 3.9 or later, standard library only. `live` reads your API key from EMPIRIOLABS_API_KEY.
 
@@ -30,6 +31,16 @@ The receipt
      "issued_at": <unix seconds>, "request_sha256": ..., "response_sha256": ..., "signature": ...}
     The signature is Ed25519 (base64url without padding) over the receipt without "signature", written as JSON with
     sorted keys and no spaces.
+
+The statement
+    GET https://api.empiriolabs.ai/v1/verification (no API key needed) answers EmpirioLabs' latest results of its own
+    checks, signed with the same key as every receipt and in the same way: each Native Inference model's last check
+    against its public fingerprint (matches, does not match, or not checked; the date; whether every answer of that
+    check was signed) and the privacy test (which models it covers, whether it is running, and how many of its test
+    links have ever been opened). Dates only. `statement` fetches it, or reads one you saved, and checks the signature.
+    {"type": "verification-statement", "version": 1, "issuer": "api.empiriolabs.ai", "key_id": ...,
+     "issued_at": <unix seconds>, "models": [...], "privacy_test": {...}, "fingerprint_check": {...}, "signature": ...}
+    A statement is never a receipt: it names no request or response, and no receipt names a "type".
 
 Keys
     keys/receipt-keys.json in this repository lists every key that has signed receipts. The API publishes the same list
@@ -57,6 +68,7 @@ EVENT_END = b"\n\n"
 HEADER = "X-Receipt"
 WHITESPACE = b" \t\r\n"
 USABLE = ("current", "retired")  # a listed key in any other state signs nothing we accept
+STATEMENT_TYPE = "verification-statement"
 
 # ---------------------------------------------------------------------------------------------------------------
 # Ed25519 verification (RFC 8032, section 5.1.7) in plain integers. Verification handles no secret, so nothing here
@@ -187,6 +199,22 @@ def split_header(body, header):
     return (body, receipt) if isinstance(receipt, dict) else None
 
 
+def signature_problem(signed, keys, what):
+    """Why `signed` (a receipt or a statement) is not signed by one of `keys`, or None when it is: its key_id names a
+    current or retired listed key whose name is its own hash, and its signature verifies over every other member."""
+    key = next((k for k in keys if k.get("key_id") == signed.get("key_id") and k.get("status") in USABLE), None)
+    if key is None:
+        return "the %s is signed with a key that is not listed (%s)" % (what, signed.get("key_id"))
+    unsigned = dict((name, value) for name, value in signed.items() if name != "signature")
+    try:
+        public = b64url_decode(key["public_key"])
+        valid = key_id(public) == key["key_id"] and ed25519_verify(public, canonical_json(unsigned),
+                                                                 b64url_decode(signed["signature"]))
+    except (ValueError, KeyError, TypeError):
+        valid = False
+    return None if valid else "the signature is not valid"
+
+
 def check(request_body, response_body, keys, header=None):
     """Check one exchange against `keys`, the published list of {"key_id", "public_key", "status"}. `header` is the
     answer's X-Receipt header, for an answer that is neither JSON nor a stream (audio, text, subtitles).
@@ -207,18 +235,9 @@ def check(request_body, response_body, keys, header=None):
         return False, "the receipt is not a version %d receipt" % VERSION
     if receipt.get("issuer") != ISSUER or receipt.get("served_by") != SERVED_BY:
         return False, "the receipt does not name this issuer"
-    key = next((k for k in keys if k.get("key_id") == receipt.get("key_id") and k.get("status") in USABLE), None)
-    if key is None:
-        return False, "the receipt is signed with a key that is not listed (%s)" % receipt.get("key_id")
-    unsigned = dict((name, value) for name, value in receipt.items() if name != "signature")
-    try:
-        public = b64url_decode(key["public_key"])
-        valid = key_id(public) == key["key_id"] and ed25519_verify(public, canonical_json(unsigned),
-                                                                 b64url_decode(signature))
-    except (ValueError, KeyError, TypeError):
-        valid = False
-    if not valid:
-        return False, "the signature is not valid"
+    why = signature_problem(receipt, keys, "receipt")
+    if why:
+        return False, why
     if receipt.get("request_sha256") != hashlib.sha256(request_body).hexdigest():
         return False, "the receipt is for another request"
     if receipt.get("response_sha256") != hashlib.sha256(covered).hexdigest():
@@ -239,6 +258,21 @@ def report_receipts(model, verdicts):
                               "%d of %d answers carry a valid receipt naming %s%s" % (
                                   named, len(verdicts), model, (": " + "; ".join(reasons[:3])) if reasons else "")))
     return signed
+
+
+def check_statement(statement, keys):
+    """Check a verification statement (GET /v1/verification) against `keys`. Returns (True, the statement) or
+    (False, the reason). True means: EmpirioLabs signed exactly these results with one of `keys`."""
+    if not isinstance(statement, dict):
+        return False, "this is not a statement"
+    if statement.get("type") != STATEMENT_TYPE or statement.get("version") != VERSION:
+        return False, "this is not a version %d verification statement" % VERSION
+    if not isinstance(statement.get("signature"), str):
+        return False, "the statement is not signed"
+    if statement.get("issuer") != ISSUER or "served_by" in statement:
+        return False, "the statement does not name this issuer"
+    why = signature_problem(statement, keys, "statement")
+    return (False, why) if why else (True, statement)
 
 
 def output_hashes(response_body):
@@ -288,6 +322,13 @@ def live_keys():
     request = urllib.request.Request(API + "/receipts/keys", headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=60) as response:
         return _listed(json.loads(response.read()))
+
+
+def live_statement():
+    """The statement the API publishes now."""
+    request = urllib.request.Request(API + "/verification", headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.loads(response.read())
 
 
 def load_keys(source="pinned"):
@@ -396,6 +437,34 @@ def _files(args):
     return 0 if good else 1
 
 
+def _statement(args):
+    if args.file:
+        with open(args.file, encoding="utf-8") as handle:
+            statement = json.load(handle)
+    else:
+        statement = live_statement()
+    ok, result = check_statement(statement, load_keys(args.keys))
+    if not ok:
+        print("NOT VERIFIED: " + result)
+        return 1
+    print("signed by EmpirioLabs: issued at %s, key %s" % (result.get("issued_at"), result.get("key_id")))
+    privacy = result.get("privacy_test") if isinstance(result.get("privacy_test"), dict) else {}
+    checks = result.get("fingerprint_check") if isinstance(result.get("fingerprint_check"), dict) else {}
+    print("privacy test: %s, last %s; test links opened since %s: %s%s; models: %s" % (
+        "running" if privacy.get("running") is True else "NOT RUNNING", privacy.get("checked_on"),
+        privacy.get("since"), privacy.get("links_opened"),
+        " or more" if privacy.get("links_opened_is_minimum") is True else "",
+        ", ".join(str(m) for m in privacy.get("models") or []) or "none"))
+    print("model check:  %s, last %s" % ("running" if checks.get("running") is True else "NOT RUNNING",
+                                         checks.get("checked_on")))
+    for entry in result.get("models") or []:
+        if isinstance(entry, dict):
+            print("  %-24s %-13s %-14s %-10s %-10s %s" % (
+                entry.get("model"), entry.get("kind"), entry.get("fingerprint"), entry.get("checked_on"),
+                entry.get("schedule"), "answers signed" if entry.get("answers_signed") is True else "NOT ALL SIGNED"))
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -409,7 +478,12 @@ def main(argv=None):
     two.add_argument("--header", help="the answer's X-Receipt header, or @file holding it (audio, text, subtitles)")
     two.add_argument("--output", nargs="+", help="generated files you downloaded, checked against the answer's sha256")
     two.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
+    three = sub.add_parser("statement", help="check EmpirioLabs' signed results of its own daily checks")
+    three.add_argument("--file", help="a statement you saved from /v1/verification (default: fetch it now)")
+    three.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
     args = parser.parse_args(argv)
+    if args.command == "statement":
+        return _statement(args)
     return _live(args) if args.command == "live" else _files(args)
 
 
