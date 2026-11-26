@@ -104,9 +104,10 @@ To check a receipt you need the request body exactly as you sent it and the resp
 ## What the checks cover
 
 - Receipts cover every Native Inference model. Third-party models don't carry one.
+- Every kind of answer that carries no receipt is listed on [the docs page](https://docs.empiriolabs.ai/verifiable-inference).
 - Text-to-video requests to `moss-video-and-audio` and `svi-2-0-pro` don't carry a receipt; send a starting image to get one. Streams from the Gemini endpoint `streamGenerateContent` don't either; use `generateContent` when you need one.
 - Fingerprints cover the models in the table above. Every model check also checks the receipt on every answer.
-- A model check confirms the model at the time it runs. The questions are fixed and public, so the receipt on every response is what ties each answer to a model and to EmpirioLabs. For image, video and 3D models and for `ace-step-1-5-xl` and `stable-audio-3-medium` you can also choose your own prompts, seeds and pictures, and for OCR models your own pages, so a check can use requests we have never seen.
+- A model check confirms the model at the time it runs. The questions are fixed and public. The receipt on every response is EmpirioLabs' signed statement of which model answered it. For image, video and 3D models and for `ace-step-1-5-xl` and `stable-audio-3-medium` you can also choose your own prompts, seeds and pictures, and for OCR models your own pages, so a check can use requests we have never seen.
 - The fingerprints of `glm-tts`, `minimax-music-3` and `soulx-podcast` were recorded from the models we serve, so their checks confirm that the model hasn't changed since.
 - A fingerprint confirms the model, not the numeric precision it runs at.
 - A receipt shows what EmpirioLabs returned for a request. It doesn't encrypt anything, and it doesn't show whether an answer is correct.
