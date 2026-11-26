@@ -121,5 +121,24 @@ class Statement(unittest.TestCase):
             self.assertIn("NOT VERIFIED", out.getvalue())
 
 
+class MaxAge(unittest.TestCase):
+    def test_a_statement_issued_longer_ago_than_max_age_is_not_current_and_a_recent_one_passes(self):
+        import time
+
+        for hours, expected in ((30, 1), (0.1, 0)):
+            statement = signed(dict(copy.deepcopy(FACTS), issued_at=int(time.time() - hours * 3600)))
+            with tempfile.TemporaryDirectory() as folder:
+                keys, saved = os.path.join(folder, "keys.json"), os.path.join(folder, "statement.json")
+                with open(keys, "w", encoding="utf-8") as handle:
+                    json.dump({"keys": KEYS}, handle)
+                with open(saved, "w", encoding="utf-8") as handle:
+                    json.dump(statement, handle)
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    code = rc.main(["statement", "--file", saved, "--keys", keys, "--max-age", "26"])
+            self.assertEqual(code, expected, out.getvalue())
+            self.assertIn("hours ago", out.getvalue())
+            self.assertEqual("NOT CURRENT" in out.getvalue(), bool(expected))
+
 if __name__ == "__main__":
     unittest.main()

@@ -52,6 +52,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -447,7 +448,14 @@ def _statement(args):
     if not ok:
         print("NOT VERIFIED: " + result)
         return 1
-    print("signed by EmpirioLabs: issued at %s, key %s" % (result.get("issued_at"), result.get("key_id")))
+    issued = result.get("issued_at")
+    age = (time.time() - issued) / 3600.0 if isinstance(issued, int) and not isinstance(issued, bool) else None
+    print("signed by EmpirioLabs: issued at %s (%s), key %s" % (
+        time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(issued)) if age is not None else issued,
+        "%.1f hours ago" % age if age is not None else "no time", result.get("key_id")))
+    if args.max_age is not None and (age is None or age > args.max_age):
+        print("NOT CURRENT: issued more than %g hours ago" % args.max_age)
+        return 1
     privacy = result.get("privacy_test") if isinstance(result.get("privacy_test"), dict) else {}
     checks = result.get("fingerprint_check") if isinstance(result.get("fingerprint_check"), dict) else {}
     print("privacy test: %s, last %s; test links opened since %s: %s%s; models: %s" % (
@@ -481,6 +489,8 @@ def main(argv=None):
     three = sub.add_parser("statement", help="check EmpirioLabs' signed results of its own daily checks")
     three.add_argument("--file", help="a statement you saved from /v1/verification (default: fetch it now)")
     three.add_argument("--keys", default="pinned", help="pinned (default), live, or a keys JSON file")
+    three.add_argument("--max-age", type=float, metavar="HOURS",
+                       help="fail a statement issued longer ago than this (a saved one shown as today's, for example)")
     args = parser.parse_args(argv)
     if args.command == "statement":
         return _statement(args)
