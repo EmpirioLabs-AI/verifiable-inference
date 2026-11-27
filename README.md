@@ -21,7 +21,7 @@ Check which model answered and that EmpirioLabs served it, for the models Empiri
 
 Two checks, each a single Python file that needs nothing beyond Python itself:
 
-- **Check a response.** Every successful answer from a Native Inference model comes with a receipt signed by EmpirioLabs: chat, completions, Responses, Messages and Gemini requests, transcription, decisions, OCR, and image, video, audio, speech and 3D generation. `check_receipt.py` confirms the signature and that the receipt covers your exact request and response, and any generated file you downloaded.
+- **Check a response.** Successful answers from Native Inference models come with a receipt signed by EmpirioLabs (the exceptions are under [What the checks cover](#what-the-checks-cover)): chat, completions, Responses, Messages and Gemini requests, transcription, decisions, OCR, and image, video, audio, speech and 3D generation. `check_receipt.py` confirms the signature and that the receipt covers your exact request and response, and any generated file you downloaded.
 - **Check a model.** `check_model.py` asks the live API a fixed list of questions and compares the answers with the model's fingerprint, made once from its public weights (for three speech and music models, recorded from the model we serve). It takes a few minutes at most and you don't run any model yourself.
 
 ## Get started
@@ -103,13 +103,13 @@ To check a receipt you need the request body exactly as you sent it and the resp
 
 ## Prompt privacy
 
-Every day, EmpirioLabs sends test requests to its Native Inference chat and decision models. Each one carries details only we know, so if anyone who handles a request used them, we'd see it. The result is in the signed results below.
+Every day, EmpirioLabs sends test requests to its Native Inference chat and decision models. Each one carries links only we know, so if anyone who handles a request opens one, we'd see it. The result is in the signed results below.
 
 You can run the same test yourself. Put a canary token, a link or key that alerts only you when it's used, in a request to a Native Inference chat, image, speech or decision model with web search off. If it's ever opened, you'll see it.
 
 ## Signed results
 
-EmpirioLabs publishes the latest results of its own checks of every Native Inference model at https://api.empiriolabs.ai/v1/verification (no API key needed), signed with the same key as every receipt. For each model: the result of its last check against its fingerprint (`matches`, `does not match`, or `not checked` when the last check gave no confirmed result or a model checked daily has had no check for 50 hours), the date of that check, whether every answer of that check was signed, and whether the model is checked daily or on request. Chat models are also checked every day with questions that are not published. For the privacy test: the models it covers, whether it is running, and how many of its test links have ever been opened.
+EmpirioLabs publishes the latest results of its own checks of every Native Inference model at https://api.empiriolabs.ai/v1/verification (no API key needed), signed with the same key as every receipt. For each model: the result of its last completed check against its fingerprint (`matches`, `does not match`, or `not checked` when that check was not conclusive or a model checked daily has had no completed check for 50 hours), the date of that check, whether every answer of that check was signed, and whether the model is checked daily or on request. Chat models are also checked at random times with questions that are not published. For the privacy test: the models it covers, whether it is running, and how many of its test links have ever been opened.
 
 `python check_receipt.py statement` fetches the results, checks the signature and says when they were issued; `--file statement.json` checks results you saved, and `--max-age 26` fails results issued more than 26 hours ago. The signature covers the statement without `signature`, written as JSON with sorted keys and no spaces, as for a receipt.
 
@@ -119,9 +119,9 @@ EmpirioLabs publishes the latest results of its own checks of every Native Infer
 - Every kind of answer that carries no receipt is listed on [the docs page](https://docs.empiriolabs.ai/verifiable-inference).
 - Text-to-video requests to `moss-video-and-audio` and `svi-2-0-pro` don't carry a receipt; send a starting image to get one. Streams from the Gemini endpoint `streamGenerateContent` don't either; use `generateContent` when you need one.
 - Fingerprints cover the models in the table above. Every model check also checks the receipt on every answer.
-- A model check confirms the model at the time it runs. The questions are fixed and public. The receipt on every response is EmpirioLabs' signed statement of which model answered it. For image, video and 3D models and for `ace-step-1-5-xl` and `stable-audio-3-medium` you can also choose your own prompts, seeds and pictures, and for OCR models your own pages, so a check can use requests we have never seen.
+- A model check confirms the model at the time it runs. The questions are fixed and public. A receipt is EmpirioLabs' signed statement of which model answered. For image, video and 3D models and for `ace-step-1-5-xl` and `stable-audio-3-medium` you can also choose your own prompts, seeds and pictures, and for OCR models your own pages, so a check can use requests we have never seen.
 - The fingerprints of `glm-tts`, `minimax-music-3` and `soulx-podcast` were recorded from the models we serve, so their checks confirm that the model hasn't changed since.
-- A fingerprint confirms the model, not the numeric precision it runs at.
+- A fingerprint confirms the model, not the numeric precision it runs at or where it runs.
 - A receipt shows what EmpirioLabs returned for a request. It doesn't encrypt anything, and it doesn't show whether an answer is correct.
 - A privacy test shows whether something in a request was used. It can't show that nothing was stored.
 - The signed results are EmpirioLabs' statement of its own checks. The model checks above let you confirm them yourself.
